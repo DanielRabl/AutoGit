@@ -1,5 +1,6 @@
 #include <qpl/qpl.hpp>
 
+constexpr bool safe_mode = false;
 
 void check_overwrite(const qpl::filesys::path& source, qpl::size git_branch_index, std::unordered_set<std::string>& checked) {
 	auto destination = source.with_branch(git_branch_index, "git");
@@ -8,7 +9,9 @@ void check_overwrite(const qpl::filesys::path& source, qpl::size git_branch_inde
 		destination.append("/");
 		if (!destination.exists()) {
 			qpl::println(qpl::str_lspaced("CREATED DIRECTORY ", 40), destination);
-			destination.ensure_branches_exist();
+			if (!safe_mode) {
+				destination.ensure_branches_exist();
+			}
 		}
 		checked.insert(destination);
 		return;
@@ -21,7 +24,10 @@ void check_overwrite(const qpl::filesys::path& source, qpl::size git_branch_inde
 		if (fs1 != fs2) {
 			auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 			qpl::println(qpl::str_lspaced(qpl::to_string("OVERWRITTEN [", diff > 0 ? "+" : "-", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
-			source.copy_overwrite(destination);
+
+			if (!safe_mode) {
+				source.copy_overwrite(destination);
+			}
 		}
 		else {
 			auto str1 = source.read();
@@ -29,13 +35,17 @@ void check_overwrite(const qpl::filesys::path& source, qpl::size git_branch_inde
 
 			if (str1 != str2) {
 				qpl::println(qpl::str_lspaced("OVERWRITTEN[DIFFERENT DATA] ", 40), destination);
-				source.copy_overwrite(destination);
+				if (!safe_mode) {
+					source.copy_overwrite(destination);
+				}
 			}
 		}
 	}
 	else {
 		qpl::println(qpl::str_lspaced("COPIED ", 40), destination);
-		source.copy(destination);
+		if (!safe_mode) {
+			source.copy(destination);
+		}
 	}
 }
 
@@ -49,7 +59,9 @@ void clear_paths(const qpl::filesys::path& path, const std::unordered_set<std::s
 		path.ensure_directory_backslash();
 		if (checked.find(path) == checked.cend()) {
 			qpl::println(qpl::str_lspaced("REMOVE ", 40), path);
-			qpl::filesys::remove(path);
+			if (!safe_mode) {
+				qpl::filesys::remove(path);
+			}
 		}
 	}
 }
@@ -127,13 +139,20 @@ void move_files(const qpl::filesys::path& path) {
 }
 
 int main() try {
-	auto path = qpl::filesys::get_current_location();
-	move_files(path);
-
 	qpl::config config;
 	config.load("paths.cfg");
 
-	qpl::println(config.get(0u));
+	for (qpl::size i = 0u; i < config.strings.size(); ++i) {
+		if (i) {
+			qpl::println();
+			qpl::println_repeat("- ", 50);
+			qpl::println();
+		}
+		auto path = qpl::filesys::path(config.get(i)).ensured_directory_backslash();
+		qpl::println(path);
+		move_files(path);
+	}
+
 }
 catch (std::exception& any) {
 	qpl::println("caught exception:\n", any.what());

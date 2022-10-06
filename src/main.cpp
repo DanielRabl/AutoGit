@@ -39,6 +39,21 @@ void check_overwrite(const qpl::filesys::path& source, qpl::size git_branch_inde
 	}
 }
 
+void clear_paths(const qpl::filesys::path& path, const std::unordered_set<std::string>& checked) {
+	auto paths = path.list_current_directory_tree();
+	for (auto& path : paths) {
+		path.update();
+		if (!path.exists()) {
+			continue;
+		}
+		path.ensure_directory_backslash();
+		if (checked.find(path) == checked.cend()) {
+			qpl::println(qpl::str_lspaced("REMOVE ", 40), path);
+			qpl::filesys::remove(path);
+		}
+	}
+}
+
 void move_files(const qpl::filesys::path& path) {
 	auto git_branch = path.branch_size() - 1;
 
@@ -95,7 +110,7 @@ void move_files(const qpl::filesys::path& path) {
 	}
 
 	auto git_path = path.ensured_directory_backslash().with_branch(git_branch, "git");
-	paths = git_path.list_current_directory_tree();
+	paths = git_path.list_current_directory();
 
 	for (auto& path : paths) {
 		path.ensure_directory_backslash();
@@ -105,8 +120,7 @@ void move_files(const qpl::filesys::path& path) {
 				valid = true;
 			}
 			if (!valid) {
-				qpl::println(qpl::str_lspaced("REMOVE ", 40), path);
-				qpl::filesys::remove(path);
+				clear_paths(path, checked);
 			}
 		}
 	}

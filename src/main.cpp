@@ -354,7 +354,7 @@ void git_to_work(const qpl::filesys::path& path) {
 
 template<bool print, bool safe_mode>
 void git_push(const qpl::filesys::path& path) {
-	if constexpr (!safe_mode) {
+	if constexpr (safe_mode) {
 		return;
 	}
 

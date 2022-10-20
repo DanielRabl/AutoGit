@@ -387,14 +387,14 @@ void git(const qpl::filesys::path& path, bool pull) {
 		clean_tree = qpl::string_equals_ignore_case(lines.back(), "nothing to commit, working tree clean");
 	}
 
+	qpl::println("output");
+	qpl::println(output_file.read());
+	qpl::println("/output");
+
 	if (clean_tree) {
 		qpl::println("git status : no updates required.");
 	}
 	else {
-		qpl::println("output");
-		qpl::println(output_file.read());
-		qpl::println("/output");
-
 		qpl::filesys::create_file(exec_batch, exec_data);
 		std::system(exec_batch.c_str());
 		qpl::filesys::remove(exec_batch);

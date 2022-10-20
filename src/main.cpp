@@ -127,7 +127,6 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 
 	if (destination.exists()) {
 		auto equals = source.file_equals_no_read(destination);
-		//auto equals = source.file_equals(destination);
 		if (!equals) {
 			auto fs1 = source.file_size();
 			auto fs2 = destination.file_size();
@@ -184,7 +183,6 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 		}
 	}
 }
-
 
 template<bool print, bool safe_mode, bool find_overwrites>
 void clear_path(const qpl::filesys::path& path) {
@@ -330,18 +328,32 @@ void git_to_work(const qpl::filesys::path& path) {
 }
 
 template<bool print, bool safe_mode>
-void git_push(const qpl::filesys::path& path) {
+void git(const qpl::filesys::path& path, bool pull) {
 	auto work_branch = path.branch_size() - 1;
 	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
 
 	git_path.update();
 	if (!git_path.exists()) {
-		qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
+		if constexpr (print) {
+			qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
+		}
 		git_path = path;
 	}
 
-	auto batch = qpl::filesys::get_current_location().get_parent_branch().appended("git_push.bat");
-	auto data = qpl::to_string("cd ", git_path, "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
+	qpl::filesys::path batch;
+	std::string data;
+
+	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
+	auto cd_command = same_dir ? "cd " : "pushd ";
+
+	if (pull) {
+		batch = qpl::filesys::get_current_location().appended("git_pull.bat");
+		data = qpl::to_string(cd_command, git_path, "\ngit status\ngit pull");
+	}
+	else {
+		batch = qpl::filesys::get_current_location().appended("git_push.bat");
+		data = qpl::to_string(cd_command, git_path, "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
+	}
 
 	if constexpr (print) {
 		if constexpr (safe_mode) {
@@ -355,33 +367,6 @@ void git_push(const qpl::filesys::path& path) {
 		qpl::filesys::remove(batch);
 	}
 }
-template<bool print, bool safe_mode>
-void git_pull(const qpl::filesys::path& path) {
-	auto work_branch = path.branch_size() - 1;
-	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
-
-	git_path.update();
-	if (!git_path.exists()) {
-		qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
-		git_path = path;
-	}
-
-	auto batch = qpl::filesys::get_current_location().get_parent_branch().appended("git_pull.bat");
-	auto data = qpl::to_string("cd ", git_path, "\ngit status\ngit pull");
-
-	if constexpr (print) {
-		if constexpr (safe_mode) {
-			qpl::print("[*]");
-		}
-		qpl::println("EXECUTE ", batch, "\n", qpl::string_replace_all(data, "\n", " && ", "\n"));
-	}
-	if constexpr (!safe_mode) {
-		qpl::filesys::create_file(batch, data);
-		std::system(batch.c_str());
-		qpl::filesys::remove(batch);
-	}
-}
-
 template<bool print, bool safe_mode, bool find_overwrites>
 void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 	bool first = true;
@@ -438,19 +423,16 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 				time_sum += elapsed;
 			}
 			else if (command == "GIT") {
-				qpl::small_clock clock;
-				if (global::pull_work) {
-					if constexpr (print) {
+				if constexpr (print) {
+					if (global::pull_work) {
 						qpl::println(command, " PULL -> ", dir_path);
 					}
-					git_pull<print, safe_mode>(dir_path);
-				}
-				else {
-					if constexpr (print) {
+					else {
 						qpl::println(command, " PUSH -> ", dir_path);
 					}
-					git_push<print, safe_mode>(dir_path);
 				}
+				qpl::small_clock clock;
+				git<print, safe_mode>(dir_path, global::pull_work);
 				auto elapsed = clock.elapsed();
 				if constexpr (print) {
 					qpl::println("Took ", elapsed.string_until_ms());

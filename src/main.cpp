@@ -356,7 +356,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	if (pull) {
 		status_batch = home.appended("git_pull_status.bat");
-		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit status > ", output_file);
+		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
 		exec_data = qpl::to_string(set_directory, "\ngit pull");
@@ -379,12 +379,18 @@ void git(const qpl::filesys::path& path, bool pull) {
 		return;
 	}
 
-	bool clean_tree;
+	bool clean_tree = false;
 	if (pull) {
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), "nothing to commit, working tree clean");
+		if (1 < lines.size()) {
+			std::string check = "Your branch is up to date";
+			auto start = lines[1].substr(0u, check.length());
+			qpl::println(check, " VS ", start);
+			clean_tree = qpl::string_equals_ignore_case(start, check);
+		}
 	}
 	else {
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), "nothing to commit, working tree clean");
+		std::string check = "nothing to commit, working tree clean";
+		clean_tree = qpl::string_equals_ignore_case(lines.back(), check);
 	}
 
 	qpl::println("output");
@@ -395,9 +401,9 @@ void git(const qpl::filesys::path& path, bool pull) {
 		qpl::println("git status : no updates required.");
 	}
 	else {
-		qpl::filesys::create_file(exec_batch, exec_data);
-		std::system(exec_batch.c_str());
-		qpl::filesys::remove(exec_batch);
+		//qpl::filesys::create_file(exec_batch, exec_data);
+		//std::system(exec_batch.c_str());
+		//qpl::filesys::remove(exec_batch);
 	}
 
 	output_file.remove();

@@ -27,9 +27,7 @@ namespace global {
 	}
 }
 
-constexpr bool print_ignore = true;
-
-
+constexpr bool print_ignore = false;
 
 bool can_touch_working_file(const qpl::filesys::path& path) {
 	if (!path.is_file()) {
@@ -329,45 +327,80 @@ void git_to_work(const qpl::filesys::path& path) {
 
 template<bool print, bool safe_mode>
 void git(const qpl::filesys::path& path, bool pull) {
+
+	if constexpr (safe_mode) {
+		return;
+	}
+
 	auto work_branch = path.branch_size() - 1;
 	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
 
 	git_path.update();
 	if (!git_path.exists()) {
-		if constexpr (print) {
-			qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
-		}
 		git_path = path;
 	}
 
-	qpl::filesys::path batch;
-	std::string data;
+	qpl::filesys::path status_batch;
+	std::string status_data;
+
+	qpl::filesys::path exec_batch;
+	std::string exec_data;
 
 	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
-	auto cd_command = same_dir ? "cd " : "cd /D ";
-
+	auto set_directory = qpl::to_string(same_dir ? "cd " : "cd /D ", git_path);
+	
 	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
 
+	auto output_file = home.appended("output.txt");
+	output_file.create();
+
 	if (pull) {
-		batch = home.appended("git_pull.bat");
-		data = qpl::to_string(cd_command, git_path, "\ngit status\ngit pull");
+		status_batch = home.appended("git_pull_status.bat");
+		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit status > ", output_file);
+
+		exec_batch = home.appended("git_pull.bat");
+		exec_data = qpl::to_string(set_directory, "\ngit pull");
 	}
 	else {
-		batch = home.appended("git_push.bat");
-		data = qpl::to_string(cd_command, git_path, "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
+		status_batch = home.appended("git_push_status.bat");
+		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit add -A\ngit status > ", output_file);
+
+		exec_batch = home.appended("git_push.bat");
+		exec_data = qpl::to_string(set_directory, "\ngit commit -m \"update\"\ngit push");
 	}
 
-	if constexpr (print) {
-		if constexpr (safe_mode) {
-			qpl::print("[*]");
-		}
-		qpl::println("EXECUTE ", batch, "\n", qpl::string_replace_all(data, "\n", " && ", "\n"));
+	qpl::filesys::create_file(status_batch, status_data);
+	std::system(status_batch.c_str());
+	qpl::filesys::remove(status_batch);
+
+	auto lines = qpl::split_string(output_file.read(), '\n');
+	if (lines.empty()) {
+		qpl::println("error : no output from git status.");
+		return;
 	}
-	if constexpr (!safe_mode) {
-		qpl::filesys::create_file(batch, data);
-		std::system(batch.c_str());
-		qpl::filesys::remove(batch);
+
+	bool clean_tree;
+	if (pull) {
+		clean_tree = qpl::string_equals_ignore_case(lines.back(), "nothing to commit, working tree clean");
 	}
+	else {
+		clean_tree = qpl::string_equals_ignore_case(lines.back(), "nothing to commit, working tree clean");
+	}
+
+	if (clean_tree) {
+		qpl::println("git status : no updates required.");
+	}
+	else {
+		qpl::println("output");
+		qpl::println(output_file.read());
+		qpl::println("/output");
+
+		qpl::filesys::create_file(exec_batch, exec_data);
+		std::system(exec_batch.c_str());
+		qpl::filesys::remove(exec_batch);
+	}
+
+	output_file.remove();
 }
 template<bool print, bool safe_mode, bool find_overwrites>
 void execute(const std::vector<std::string> lines, qpl::time& time_sum) {

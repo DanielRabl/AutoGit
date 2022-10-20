@@ -434,6 +434,13 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 
+		if (global::pull_work && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
+			std::swap(args[0], args[1]);
+		}
+		else if (!global::pull_work && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
+			std::swap(args[0], args[1]);
+		}
+
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 			if (i) {
 				if constexpr (print) {

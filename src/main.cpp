@@ -346,12 +346,14 @@ void git(const qpl::filesys::path& path, bool pull) {
 	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
 	auto cd_command = same_dir ? "cd " : "cd /D ";
 
+	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
+
 	if (pull) {
-		batch = qpl::filesys::get_current_location().appended("git_pull.bat");
+		batch = home.appended("git_pull.bat");
 		data = qpl::to_string(cd_command, git_path, "\ngit status\ngit pull");
 	}
 	else {
-		batch = qpl::filesys::get_current_location().appended("git_push.bat");
+		batch = home.appended("git_push.bat");
 		data = qpl::to_string(cd_command, git_path, "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
 	}
 

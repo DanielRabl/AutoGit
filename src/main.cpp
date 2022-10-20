@@ -344,7 +344,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 	std::string data;
 
 	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
-	auto cd_command = same_dir ? "cd " : "pushd ";
+	auto cd_command = same_dir ? "cd " : "cd /D ";
 
 	if (pull) {
 		batch = qpl::filesys::get_current_location().appended("git_pull.bat");

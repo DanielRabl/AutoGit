@@ -76,21 +76,9 @@ bool can_touch_git_directory(const qpl::filesys::path& path) {
 	}
 	return true;
 }
-bool can_touch_git_file(const qpl::filesys::path& path) {
-	if (!path.is_file()) {
-		return true;
-	}
-	if (path.get_full_file_name() == "git_pull.bat" || path.get_full_file_name() == "git_push.bat") {
-		return false;
-	}
-	return true;
-}
-bool can_touch_git(const qpl::filesys::path& path) {
-	return can_touch_git_directory(path) && can_touch_git_file(path);
-}
 bool can_touch(const qpl::filesys::path& path, bool is_git) {
 	if (is_git) {
-		return can_touch_git(path);
+		return can_touch_git_directory(path);
 	}
 	else {
 		return can_touch_working(path);
@@ -316,7 +304,7 @@ void git_to_work(const qpl::filesys::path& path) {
 
 	auto paths = git_path.list_current_directory();
 	for (auto& path : paths) {
-		if (can_touch_git(path)) {
+		if (can_touch_git_directory(path)) {
 			if (path.is_directory()) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
@@ -345,8 +333,15 @@ template<bool print, bool safe_mode>
 void git_push(const qpl::filesys::path& path) {
 	auto work_branch = path.branch_size() - 1;
 	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
-	auto batch = git_path.appended("git_push.bat");
-	auto data = qpl::to_string("cd ", batch.get_parent_branch(), "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
+
+	git_path.update();
+	if (!git_path.exists()) {
+		qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
+		git_path = path;
+	}
+
+	auto batch = qpl::filesys::get_current_location().get_parent_branch().appended("git_push.bat");
+	auto data = qpl::to_string("cd ", git_path, "\ngit add -A\ngit status\ngit commit -m \"update\"\ngit push");
 
 	if constexpr (print) {
 		if constexpr (safe_mode) {
@@ -364,8 +359,15 @@ template<bool print, bool safe_mode>
 void git_pull(const qpl::filesys::path& path) {
 	auto work_branch = path.branch_size() - 1;
 	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
-	auto batch = git_path.appended("git_push.bat");
-	auto data = qpl::to_string("cd ", batch.get_parent_branch(), "\ngit status\ngit pull");
+
+	git_path.update();
+	if (!git_path.exists()) {
+		qpl::println("git_path doesn't exist ", git_path, ", so using ", path);
+		git_path = path;
+	}
+
+	auto batch = qpl::filesys::get_current_location().get_parent_branch().appended("git_pull.bat");
+	auto data = qpl::to_string("cd ", git_path, "\ngit status\ngit pull");
 
 	if constexpr (print) {
 		if constexpr (safe_mode) {

@@ -566,6 +566,9 @@ int main() try {
 	run();
 }
 catch (std::exception& any) {
+
+	//test
+
 	qpl::println("caught exception:\n", any.what());
 	qpl::system_pause();
 }

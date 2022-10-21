@@ -4,7 +4,7 @@ namespace global {
 	std::unordered_set<std::string> checked;
 	std::unordered_set<std::string> ignore;
 	std::vector<std::string> possible_recent_overwrites;
-	bool pull_work;
+	bool pull;
 		 
 	bool find_checked(std::string str) {
 		return checked.find(str) != checked.cend();
@@ -209,6 +209,7 @@ void clear_path(const qpl::filesys::path& path) {
 		}
 	}
 }
+
 template<bool print, bool safe_mode, bool find_overwrites>
 void clear_paths(const qpl::filesys::path& path) {
 	if (path.is_directory()) {
@@ -221,7 +222,6 @@ void clear_paths(const qpl::filesys::path& path) {
 		clear_path<print, safe_mode, find_overwrites>(path);
 	}
 }
-
 
 template<bool print, bool safe_mode, bool find_overwrites>
 void find_removables(const qpl::filesys::path& path, bool is_git) {
@@ -242,31 +242,46 @@ void find_removables(const qpl::filesys::path& path, bool is_git) {
 		}
 	}
 }
+
+
 template<bool print, bool safe_mode, bool find_overwrites>
-void work_to_git(const qpl::filesys::path& path) {
+void move(const qpl::filesys::path& path, bool pull_from_git) {
 	if (!path.exists()) {
-		qpl::println("WORK_TO_GIT : ", path, " doesn't exist.");
+		qpl::println("MOVE : ", path, " doesn't exist.");
 		return;
 	}
 	if (!is_valid_working_directory(path)) {
-		qpl::println("WORK_TO_GIT : ", path, " is not a valid working directory.");
+		qpl::println("MOVE : ", path, " is not a valid working directory with a solution file.");
 		return;
 	}
-	auto git_branch = path.branch_size() - 1;
+
+	bool is_target_git = !pull_from_git;
+	auto branch = path.branch_size() - 1;
+	std::string target_branch_name;
+
+	qpl::filesys::path target_path;
+	if (pull_from_git) {
+		target_branch_name = path.get_directory_name();
+		target_path = path.ensured_directory_backslash().with_branch(branch, "git");
+	}
+	else {
+		target_branch_name = "git";
+		target_path = path;
+	}
 	global::checked.clear();
 
-	auto paths = path.list_current_directory();
+	auto paths = target_path.list_current_directory();
 	for (auto& path : paths) {
-		if (can_touch_working(path)) {
+		if (can_touch(path, pull_from_git)) {
 			if (path.is_directory()) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
-					auto destination = path.with_branch(git_branch, "git").ensured_directory_backslash();
+					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
 					check_overwrite<print, safe_mode, find_overwrites>(path, destination);
 				}
 			}
 			else {
-				auto destination = path.with_branch(git_branch, "git").ensured_directory_backslash();
+				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
 				check_overwrite<print, safe_mode, find_overwrites>(path, destination);
 			}
 		}
@@ -278,52 +293,92 @@ void work_to_git(const qpl::filesys::path& path) {
 		}
 	}
 
-	auto git_path = path.ensured_directory_backslash().with_branch(git_branch, "git");
-	find_removables<print, safe_mode, find_overwrites>(git_path, true);
+	auto git_path = path.ensured_directory_backslash().with_branch(branch, target_branch_name);
+	find_removables<print, safe_mode, find_overwrites>(git_path, is_target_git);
 }
 
-template<bool print, bool safe_mode, bool find_overwrites>
-void git_to_work(const qpl::filesys::path& path) {
-	if (!path.exists()) {
-		qpl::println("GIT_TO_WORK : ", path, " doesn't exist.");
-		return;
-	}
-	if (!is_valid_working_directory(path)) {
-		qpl::println("GIT_TO_WORK : ", path, " is not a valid working directory.");
-		return;
-	}
-	auto work_branch = path.branch_size() - 1;
-	auto project_name = path.get_directory_name();
-
-	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
-	global::checked.clear();
-
-	auto paths = git_path.list_current_directory();
-	for (auto& path : paths) {
-		if (can_touch_git_directory(path)) {
-			if (path.is_directory()) {
-				auto dir_paths = path.list_current_directory_tree_include_self();
-				for (auto& path : dir_paths) {
-					auto destination = path.with_branch(work_branch, project_name).ensured_directory_backslash();
-					check_overwrite<print, safe_mode, find_overwrites>(path, destination);
-				}
-			}
-			else {
-				auto destination = path.with_branch(work_branch, project_name).ensured_directory_backslash();
-				check_overwrite<print, safe_mode, find_overwrites>(path, destination);
-			}
-		}
-		else {
-			if constexpr (print && print_ignore) {
-				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
-			}
-		}
-	}
-
-	auto work_path = git_path.ensured_directory_backslash().with_branch(work_branch, project_name);
-	find_removables<print, safe_mode, find_overwrites>(work_path, false);
-}
+//template<bool print, bool safe_mode, bool find_overwrites>
+//void work_to_git(const qpl::filesys::path& path) {
+//	if (!path.exists()) {
+//		qpl::println("WORK_TO_GIT : ", path, " doesn't exist.");
+//		return;
+//	}
+//	if (!is_valid_working_directory(path)) {
+//		qpl::println("WORK_TO_GIT : ", path, " is not a valid working directory.");
+//		return;
+//	}
+//	auto git_branch = path.branch_size() - 1;
+//	global::checked.clear();
+//
+//	auto paths = path.list_current_directory();
+//	for (auto& path : paths) {
+//		if (can_touch_working(path)) {
+//			if (path.is_directory()) {
+//				auto dir_paths = path.list_current_directory_tree_include_self();
+//				for (auto& path : dir_paths) {
+//					auto destination = path.with_branch(git_branch, "git").ensured_directory_backslash();
+//					check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+//				}
+//			}
+//			else {
+//				auto destination = path.with_branch(git_branch, "git").ensured_directory_backslash();
+//				check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+//			}
+//		}
+//		else {
+//			if constexpr (print && print_ignore) {
+//				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+//				qpl::println(qpl::str_lspaced(word, 40), path);
+//			}
+//		}
+//	}
+//
+//	auto git_path = path.ensured_directory_backslash().with_branch(git_branch, "git");
+//	find_removables<print, safe_mode, find_overwrites>(git_path, true);
+//}
+//
+//template<bool print, bool safe_mode, bool find_overwrites>
+//void git_to_work(const qpl::filesys::path& path) {
+//	if (!path.exists()) {
+//		qpl::println("GIT_TO_WORK : ", path, " doesn't exist.");
+//		return;
+//	}
+//	if (!is_valid_working_directory(path)) {
+//		qpl::println("GIT_TO_WORK : ", path, " is not a valid working directory.");
+//		return;
+//	}
+//	auto work_branch = path.branch_size() - 1;
+//	auto project_name = path.get_directory_name();
+//
+//	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
+//	global::checked.clear();
+//
+//	auto paths = git_path.list_current_directory();
+//	for (auto& path : paths) {
+//		if (can_touch_git_directory(path)) {
+//			if (path.is_directory()) {
+//				auto dir_paths = path.list_current_directory_tree_include_self();
+//				for (auto& path : dir_paths) {
+//					auto destination = path.with_branch(work_branch, project_name).ensured_directory_backslash();
+//					check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+//				}
+//			}
+//			else {
+//				auto destination = path.with_branch(work_branch, project_name).ensured_directory_backslash();
+//				check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+//			}
+//		}
+//		else {
+//			if constexpr (print && print_ignore) {
+//				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+//				qpl::println(qpl::str_lspaced(word, 40), path);
+//			}
+//		}
+//	}
+//
+//	auto work_path = git_path.ensured_directory_backslash().with_branch(work_branch, project_name);
+//	find_removables<print, safe_mode, find_overwrites>(work_path, false);
+//}
 
 template<bool print, bool safe_mode>
 void git(const qpl::filesys::path& path, bool pull) {
@@ -426,10 +481,10 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 
-		if (global::pull_work && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
+		if (global::pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
 			std::swap(args[0], args[1]);
 		}
-		else if (!global::pull_work && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
+		else if (!global::pull && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
 			std::swap(args[0], args[1]);
 		}
 
@@ -442,19 +497,37 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 
 			const auto& command = args[i];
 			if (command == "MOVE") {
+				//qpl::small_clock clock;
+				//if (global::pull) {
+				//	if constexpr (print) {
+				//		qpl::println("GIT -> WORK ", dir_path);
+				//	}
+				//	git_to_work<print, safe_mode, find_overwrites>(dir_path);
+				//}
+				//else {
+				//	if constexpr (print) {
+				//		qpl::println("WORK -> GIT ", dir_path);
+				//	}
+				//	work_to_git<print, safe_mode, find_overwrites>(dir_path);
+				//}
+				//auto elapsed = clock.elapsed();
+				//if constexpr (print) {
+				//	qpl::println("Took ", elapsed.string_until_ms());
+				//}
+				//
+				//time_sum += elapsed;
+
+
+				if constexpr (print) {
+					if (global::pull) {
+						qpl::println("MOVE -> WORK ", dir_path);
+					}
+					else {
+						qpl::println("MOVE -> GIT ", dir_path);
+					}
+				}
 				qpl::small_clock clock;
-				if (global::pull_work) {
-					if constexpr (print) {
-						qpl::println("GIT -> WORK ", dir_path);
-					}
-					git_to_work<print, safe_mode, find_overwrites>(dir_path);
-				}
-				else {
-					if constexpr (print) {
-						qpl::println("WORK -> GIT ", dir_path);
-					}
-					work_to_git<print, safe_mode, find_overwrites>(dir_path);
-				}
+				move<print, safe_mode, find_overwrites>(dir_path, global::pull);
 				auto elapsed = clock.elapsed();
 				if constexpr (print) {
 					qpl::println("Took ", elapsed.string_until_ms());
@@ -464,7 +537,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			}
 			else if (command == "GIT") {
 				if constexpr (print) {
-					if (global::pull_work) {
+					if (global::pull) {
 						qpl::println(command, " PULL -> ", dir_path);
 					}
 					else {
@@ -472,7 +545,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 					}
 				}
 				qpl::small_clock clock;
-				git<print, safe_mode>(dir_path, global::pull_work);
+				git<print, safe_mode>(dir_path, global::pull);
 				auto elapsed = clock.elapsed();
 				if constexpr (print) {
 					qpl::println("Took ", elapsed.string_until_ms());
@@ -530,11 +603,11 @@ void determine_pull_or_push() {
 		qpl::print("PULL changes or PUSH changes > ");
 		auto input = qpl::get_input();
 		if (qpl::string_equals_ignore_case(input, "pull")) {
-			global::pull_work = true;
+			global::pull = true;
 			return;
 		}
 		else if (qpl::string_equals_ignore_case(input, "push")) {
-			global::pull_work = false;
+			global::pull = false;
 			return;
 		}
 		else {

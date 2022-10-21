@@ -1,4 +1,6 @@
 #include <qpl/qpl.hpp>
+#include <qpl/winsys.hpp>
+
 
 namespace global {
 	std::unordered_set<std::string> checked;
@@ -380,12 +382,14 @@ void git(const qpl::filesys::path& path, bool pull) {
 	}
 
 	if (clean_tree) {
+		qpl::set_console_color(qpl::color::aqua);
 		if (pull) {
 			qpl::println("git status : branch is up-to-date.");
 		}
 		else {
 			qpl::println("git status : nothing new to commit.");
 		}
+		qpl::set_console_color_default();
 	}
 	else {
 		if (!pull) {

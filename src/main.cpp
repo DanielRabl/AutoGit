@@ -361,7 +361,6 @@ void git(const qpl::filesys::path& path, bool pull) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
 			clean_tree = qpl::string_equals_ignore_case(start, search);
-			qpl::println(search, " VS ", start, " ( EQUALS = ", clean_tree, ")");
 		}
 	}
 	else {

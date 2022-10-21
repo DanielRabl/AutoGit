@@ -426,9 +426,9 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 		if (!first) {
 			if constexpr (print) {
 				qpl::println();
-				qpl::println_repeat("-- ", 50);
-				qpl::println_repeat("## ", 50);
-				qpl::println_repeat("-- ", 50);
+				qpl::println_repeat(".   ", 20);
+				qpl::println_repeat("- - ", 20);
+				qpl::println_repeat("  . ", 20);
 				qpl::println();
 			}
 		}

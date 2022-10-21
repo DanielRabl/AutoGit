@@ -382,15 +382,15 @@ void git(const qpl::filesys::path& path, bool pull) {
 	bool clean_tree = false;
 	if (pull) {
 		if (1 < lines.size()) {
-			std::string check = "Your branch is up to date";
+			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, check.length());
 			qpl::println(check, " VS ", start);
-			clean_tree = qpl::string_equals_ignore_case(start, check);
+			clean_tree = qpl::string_equals_ignore_case(start, search);
 		}
 	}
 	else {
-		std::string check = "nothing to commit, working tree clean";
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), check);
+		std::string search = "nothing to commit, working tree clean";
+		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
 	qpl::println("output");

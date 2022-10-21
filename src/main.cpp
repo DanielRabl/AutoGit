@@ -432,48 +432,37 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 		}
 
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
-			if (i) {
-				if constexpr (print) {
-					qpl::println();
-				}
-			}
+			qpl::print(args[i], ' ');
+		}
+		qpl::println(dir_path);
 
+		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 			const auto& command = args[i];
 			if (command == "MOVE") {
 				if constexpr (print) {
 					if (global::pull) {
-						qpl::println("MOVE -> WORK ", dir_path);
+						qpl::println("MOVE -> WORK");
 					}
 					else {
-						qpl::println("MOVE -> GIT ", dir_path);
+						qpl::println("MOVE -> GIT");
 					}
 				}
 				qpl::small_clock clock;
 				move<print, safe_mode, find_overwrites>(dir_path, global::pull);
-				auto elapsed = clock.elapsed();
-				if constexpr (print) {
-					qpl::println("Took ", elapsed.string_until_ms());
-				}
-
-				time_sum += elapsed;
+				time_sum += clock.elapsed();
 			}
 			else if (command == "GIT") {
 				if constexpr (print) {
 					if (global::pull) {
-						qpl::println(command, " PULL -> ", dir_path);
+						qpl::println(command, " PULL");
 					}
 					else {
-						qpl::println(command, " PUSH -> ", dir_path);
+						qpl::println(command, " PUSH");
 					}
 				}
 				qpl::small_clock clock;
 				git<print, safe_mode>(dir_path, global::pull);
-				auto elapsed = clock.elapsed();
-				if constexpr (print) {
-					qpl::println("Took ", elapsed.string_until_ms());
-				}
-
-				time_sum += elapsed;
+				time_sum += clock.elapsed();
 			}
 			else if (command == "IGNORE") {
 				global::ignore.insert(dir_path);

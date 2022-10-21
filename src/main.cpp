@@ -356,17 +356,17 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	if (pull) {
 		status_batch = home.appended("git_pull_status.bat");
-		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit fetch\ngit status -uno > ", output_file);
+		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
-		exec_data = qpl::to_string(set_directory, "\ngit pull");
+		exec_data = qpl::to_string(set_directory, " && git pull");
 	}
 	else {
 		status_batch = home.appended("git_push_status.bat");
-		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit add -A\ngit status > ", output_file);
+		status_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status > ", output_file);
 
 		exec_batch = home.appended("git_push.bat");
-		exec_data = qpl::to_string(set_directory, "\ngit commit -m \"update\"\ngit push");
+		exec_data = qpl::to_string(set_directory, " && git commit -m \"update\" && git push");
 	}
 
 	qpl::filesys::create_file(status_batch, status_data);
@@ -426,7 +426,9 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 		if (!first) {
 			if constexpr (print) {
 				qpl::println();
-				qpl::println_repeat("- ", 50);
+				qpl::println_repeat("-- ", 50);
+				qpl::println_repeat("## ", 50);
+				qpl::println_repeat("-- ", 50);
 				qpl::println();
 			}
 		}
@@ -551,26 +553,31 @@ void determine_pull_or_push() {
 	}
 }
 
-int main() try {
-
+void run() {
 	auto lines = qpl::split_string(qpl::read_file("paths.cfg"), '\n');
 
 	for (auto& line : lines) {
 		qpl::remove_multiples(line, '\r');
 	}
-	determine_pull_or_push();
+	while (true) {
+		determine_pull_or_push();
 
-	qpl::time time_sum = 0u;
-	constexpr bool safe_mode = false;
+		qpl::time time_sum = 0u;
+		constexpr bool safe_mode = false;
 
-	execute<false, true, true>(lines, time_sum);
-	if (confirm_overwrites<safe_mode>()) {
-		execute<true, safe_mode, false>(lines, time_sum);
+		execute<false, true, true>(lines, time_sum);
+		if (confirm_overwrites<safe_mode>()) {
+			execute<true, safe_mode, false>(lines, time_sum);
+		}
+
+		qpl::println();
+		qpl::println("TOTAL : ", time_sum.string_until_ms());
+		qpl::println();
 	}
+}
 
-	qpl::println();
-	qpl::println("TOTAL : ", time_sum.string_until_ms());
-	qpl::system_pause();
+int main() try {
+	run();
 }
 catch (std::exception& any) {
 	qpl::println("caught exception:\n", any.what());

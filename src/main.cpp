@@ -4,6 +4,7 @@ namespace global {
 	std::unordered_set<std::string> checked;
 	std::unordered_set<std::string> ignore;
 	std::vector<std::string> possible_recent_overwrites;
+	std::vector<std::string> date_changed_overwrites;
 	bool pull;
 		 
 	bool find_checked(std::string str) {
@@ -139,6 +140,8 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 
 				auto overwrites_newer = time2.time_since_epoch().count() > time1.time_since_epoch().count();
 
+				bool different_time_but_same_data = overwrites_newer && source.file_content_equals(destination);
+
 				if (overwrites_newer) {
 
 					auto ns1 = std::chrono::duration_cast<std::chrono::nanoseconds>(time1.time_since_epoch()).count();
@@ -149,7 +152,13 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 					auto time_stamp = qpl::get_time_string(time2, "%Y-%m-%d %H-%M-%S");
 
 					auto str = qpl::to_string(time_stamp, " ", qpl::str_spaced(qpl::to_string("( + ", diff, ")"), 30), " --- ", destination);
-					global::possible_recent_overwrites.push_back(str);
+
+					if (different_time_but_same_data) {
+						global::date_changed_overwrites.push_back(str);
+					}
+					else {
+						global::possible_recent_overwrites.push_back(str);
+					}
 				}
 			}
 
@@ -471,9 +480,21 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 
 template<bool safe_mode>
 bool confirm_overwrites() {
-	auto size = global::possible_recent_overwrites.size();
+	auto size = global::date_changed_overwrites.size();
 	if (size) {
-		qpl::println("there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version.");
+		qpl::println();
+		qpl::println("HINT: there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version, but the data is same.");
+		qpl::println();
+
+		for (auto& i : global::date_changed_overwrites) {
+			qpl::println(i);
+		}
+	}
+
+	size = global::possible_recent_overwrites.size();
+	if (size) {
+		qpl::println();
+		qpl::println("WARNING: there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version.");
 		qpl::println();
 		for (auto& i : global::possible_recent_overwrites) {
 			qpl::println(i);
@@ -551,6 +572,9 @@ int main() try {
 	run();
 }
 catch (std::exception& any) {
+
+	//test
+
 	qpl::println("caught exception:\n", any.what());
 	qpl::system_pause();
 }

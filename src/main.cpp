@@ -119,7 +119,9 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 		if (!destination.exists()) {
 			if constexpr (print) {
 				auto word = safe_mode ? "[*]CREATED DIRECTORY  " : "CREATED DIRECTORY  ";
+				qpl::set_console_color(qpl::color::gray);
 				qpl::println(qpl::str_lspaced(word, 40), destination);
+				qpl::set_console_color_default();
 			}
 			if constexpr (!safe_mode) {
 				destination.ensure_branches_exist();
@@ -168,7 +170,9 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if constexpr (print) {
 					auto word = safe_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
+					qpl::set_console_color(qpl::color::gray);
 					qpl::println(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
+					qpl::set_console_color_default();
 				}
 
 				if constexpr (!safe_mode) {
@@ -177,8 +181,10 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 			}
 			else {
 				if constexpr (print) {
-					auto word = safe_mode ? "[*]OVERWRITTEN [DIFFERENT DATA] " : "OVERWRITTEN [DIFFERENT DATA] ";
+					auto word = safe_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
+					qpl::set_console_color(qpl::color::gray);
 					qpl::println(qpl::str_lspaced(word, 40), destination);
+					qpl::set_console_color_default();
 				}
 				if constexpr (!safe_mode) {
 					source.copy_overwrite(destination);
@@ -189,7 +195,9 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 	else {
 		if constexpr (print) {
 			auto word = safe_mode ? "[*]COPIED " : "COPIED ";
+			qpl::set_console_color(qpl::color::gray);
 			qpl::println(qpl::str_lspaced(word, 40), destination);
+			qpl::set_console_color_default();
 		}
 		if constexpr (!safe_mode) {
 			source.copy(destination);

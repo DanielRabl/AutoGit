@@ -412,6 +412,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	output_file.remove();
 }
+
 template<bool print, bool safe_mode, bool find_collisions>
 void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {

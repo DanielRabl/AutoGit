@@ -393,10 +393,6 @@ void git(const qpl::filesys::path& path, bool pull) {
 		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
-	qpl::println("output");
-	qpl::println(output_file.read());
-	qpl::println("/output");
-
 	if (clean_tree) {
 		qpl::println("git status : no updates required.");
 	}
@@ -426,9 +422,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 		if (!first) {
 			if constexpr (print) {
 				qpl::println();
-				qpl::println_repeat(".   ", 20);
-				qpl::println_repeat("- - ", 20);
-				qpl::println_repeat("  . ", 20);
+				qpl::println_repeat(".-", 40);
 				qpl::println();
 			}
 		}
@@ -572,6 +566,8 @@ void run() {
 
 		qpl::println();
 		qpl::println("TOTAL : ", time_sum.string_until_ms());
+		qpl::println();
+		qpl::println_repeat(".-", 40);
 		qpl::println();
 	}
 }

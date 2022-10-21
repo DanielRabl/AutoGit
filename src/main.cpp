@@ -369,7 +369,12 @@ void git(const qpl::filesys::path& path, bool pull) {
 	}
 
 	if (clean_tree) {
-		qpl::println("git status : no updates required.");
+		if (pull) {
+			qpl::println("git status : branch is up-to-date.");
+		}
+		else {
+			qpl::println("git status : nothing new to commit.");
+		}
 	}
 	else {
 		qpl::filesys::create_file(exec_batch, exec_data);

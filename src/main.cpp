@@ -536,7 +536,6 @@ void run() {
 		qpl::println();
 		qpl::println_repeat("- ", 40);
 		qpl::println();
-		qpl::println();
 		qpl::println("TOTAL : ", time_sum.string_until_ms());
 		qpl::println();
 		qpl::println_repeat("- ", 40);

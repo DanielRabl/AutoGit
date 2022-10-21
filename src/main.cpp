@@ -339,19 +339,22 @@ void git(const qpl::filesys::path& path, bool pull) {
 	auto output_file = home.appended("output.txt");
 	output_file.create();
 
+	qpl::filesys::path git_status = home.appended("git_status.bat");
+	std::string git_status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
+
 	if (pull) {
 		status_batch = home.appended("git_pull_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
-		exec_data = qpl::to_string(set_directory, " && git pull");
+		exec_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git pull");
 	}
 	else {
 		status_batch = home.appended("git_push_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status > ", output_file);
 
 		exec_batch = home.appended("git_push.bat");
-		exec_data = qpl::to_string(set_directory, " && git commit -m \"update\" && git push");
+		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
 	}
 
 	qpl::filesys::create_file(status_batch, status_data);
@@ -386,6 +389,12 @@ void git(const qpl::filesys::path& path, bool pull) {
 		}
 	}
 	else {
+		if (!pull) {
+			qpl::filesys::create_file(git_status, git_status_data);
+			std::system(git_status.c_str());
+			qpl::filesys::remove(git_status);
+		}
+
 		qpl::filesys::create_file(exec_batch, exec_data);
 		std::system(exec_batch.c_str());
 		qpl::filesys::remove(exec_batch);

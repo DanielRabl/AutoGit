@@ -406,7 +406,6 @@ void git(const qpl::filesys::path& path, bool pull) {
 }
 template<bool print, bool safe_mode, bool find_overwrites>
 void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
-	bool first = true;
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 
 		auto args = qpl::split_string_whitespace(lines[i]);
@@ -419,14 +418,11 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			continue;
 		}
 
-		if (!first) {
-			if constexpr (print) {
-				qpl::println();
-				qpl::println_repeat(".-", 40);
-				qpl::println();
-			}
+		if constexpr (print) {
+			qpl::println();
+			qpl::println_repeat(".-", 40);
+			qpl::println();
 		}
-		first = false;
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 

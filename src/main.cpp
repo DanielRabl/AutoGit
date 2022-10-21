@@ -384,8 +384,8 @@ void git(const qpl::filesys::path& path, bool pull) {
 		if (1 < lines.size()) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
-			qpl::println(search, " VS ", start);
 			clean_tree = qpl::string_equals_ignore_case(start, search);
+			qpl::println(search, " VS ", start, " ( EQUALS = ", clean_tree, ")");
 		}
 	}
 	else {
@@ -401,9 +401,9 @@ void git(const qpl::filesys::path& path, bool pull) {
 		qpl::println("git status : no updates required.");
 	}
 	else {
-		//qpl::filesys::create_file(exec_batch, exec_data);
-		//std::system(exec_batch.c_str());
-		//qpl::filesys::remove(exec_batch);
+		qpl::filesys::create_file(exec_batch, exec_data);
+		std::system(exec_batch.c_str());
+		qpl::filesys::remove(exec_batch);
 	}
 
 	output_file.remove();

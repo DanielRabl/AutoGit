@@ -563,8 +563,6 @@ void run() {
 }
 
 int main() try {
-
-
 	run();
 }
 catch (std::exception& any) {

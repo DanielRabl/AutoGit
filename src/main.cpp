@@ -256,7 +256,6 @@ void find_removables(const qpl::filesys::path& path, bool is_git) {
 	}
 }
 
-
 template<bool print, bool safe_mode, bool find_collisions>
 void move(const qpl::filesys::path& path, bool pull_from_git) {
 	if (!path.exists()) {
@@ -431,10 +430,12 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			std::swap(args[0], args[1]);
 		}
 
-		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
-			qpl::print(args[i], ' ');
+		if constexpr (print) {
+			for (qpl::size i = 0u; i < args.size() - 1; ++i) {
+				qpl::print(args[i], ' ');
+			}
+			qpl::println(dir_path);
 		}
-		qpl::println(dir_path);
 
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 			const auto& command = args[i];
@@ -500,7 +501,6 @@ bool confirm_collisions() {
 	}
 	else {
 		qpl::println("no collisions found.");
-		qpl::println();
 	}
 	return true;
 }

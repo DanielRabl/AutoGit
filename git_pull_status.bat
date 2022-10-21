@@ -1,1 +1,0 @@
-@echo off && cd /D C:/dev/lib/qpl/ && git fetch && git status -uno > D:/VisualStudio2022/AutoGit/QPL_NO_SFML/output.txt

@@ -356,7 +356,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	if (pull) {
 		status_batch = home.appended("git_pull_status.bat");
-		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit status -uno > ", output_file);
+		status_data = qpl::to_string("@echo off\n", set_directory, "\ngit fetch\ngit status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
 		exec_data = qpl::to_string(set_directory, "\ngit pull");

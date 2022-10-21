@@ -1,7 +1,6 @@
 #include <qpl/qpl.hpp>
 #include <qpl/winsys.hpp>
 
-
 namespace global {
 	std::unordered_set<std::string> checked;
 	std::unordered_set<std::string> ignore;
@@ -566,9 +565,6 @@ int main() try {
 	run();
 }
 catch (std::exception& any) {
-
-	//test
-
 	qpl::println("caught exception:\n", any.what());
 	qpl::system_pause();
 }

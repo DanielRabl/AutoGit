@@ -100,7 +100,7 @@ bool is_valid_working_directory(const qpl::filesys::path& path) {
 	return false;
 }
 
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path& destination) {
 	if (global::find_ignored_root(source.ensured_directory_backslash())) {
 		if (print_ignore && global::find_ignored(source.ensured_directory_backslash())) {
@@ -134,7 +134,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 			auto fs1 = source.file_size();
 			auto fs2 = destination.file_size();
 
-			if constexpr (find_overwrites) {
+			if constexpr (find_collisions) {
 				auto time1 = source.last_write_time();
 				auto time2 = destination.last_write_time();
 
@@ -195,7 +195,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 	}
 }
 
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void clear_path(const qpl::filesys::path& path) {
 	if (global::find_ignored_root(path)) {
 		if (print_ignore && global::find_ignored(path)) {
@@ -223,20 +223,20 @@ void clear_path(const qpl::filesys::path& path) {
 	}
 }
 
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void clear_paths(const qpl::filesys::path& path) {
 	if (path.is_directory()) {
 		auto paths = path.list_current_directory_tree_include_self();
 		for (auto& path : paths) {
-			clear_path<print, safe_mode, find_overwrites>(path);
+			clear_path<print, safe_mode, find_collisions>(path);
 		}
 	}
 	else {
-		clear_path<print, safe_mode, find_overwrites>(path);
+		clear_path<print, safe_mode, find_collisions>(path);
 	}
 }
 
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void find_removables(const qpl::filesys::path& path, bool is_git) {
 	auto paths = path.list_current_directory();
 	for (auto& path : paths) {
@@ -245,7 +245,7 @@ void find_removables(const qpl::filesys::path& path, bool is_git) {
 			continue;
 		}
 		if (can_touch(path, is_git)) {
-			clear_paths<print, safe_mode, find_overwrites>(path);
+			clear_paths<print, safe_mode, find_collisions>(path);
 		}
 		else {
 			if constexpr (print && print_ignore) {
@@ -257,7 +257,7 @@ void find_removables(const qpl::filesys::path& path, bool is_git) {
 }
 
 
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void move(const qpl::filesys::path& path, bool pull_from_git) {
 	if (!path.exists()) {
 		qpl::println("MOVE : ", path, " doesn't exist.");
@@ -290,12 +290,12 @@ void move(const qpl::filesys::path& path, bool pull_from_git) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
 					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-					check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+					check_overwrite<print, safe_mode, find_collisions>(path, destination);
 				}
 			}
 			else {
 				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-				check_overwrite<print, safe_mode, find_overwrites>(path, destination);
+				check_overwrite<print, safe_mode, find_collisions>(path, destination);
 			}
 		}
 		else {
@@ -307,7 +307,7 @@ void move(const qpl::filesys::path& path, bool pull_from_git) {
 	}
 
 	auto git_path = path.ensured_directory_backslash().with_branch(branch, target_branch_name);
-	find_removables<print, safe_mode, find_overwrites>(git_path, is_target_git);
+	find_removables<print, safe_mode, find_collisions>(git_path, is_target_git);
 }
 
 template<bool print, bool safe_mode>
@@ -402,7 +402,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	output_file.remove();
 }
-template<bool print, bool safe_mode, bool find_overwrites>
+template<bool print, bool safe_mode, bool find_collisions>
 void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 
@@ -440,7 +440,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			const auto& command = args[i];
 			if (command == "MOVE") {
 				qpl::small_clock clock;
-				move<print, safe_mode, find_overwrites>(dir_path, global::pull);
+				move<print, safe_mode, find_collisions>(dir_path, global::pull);
 				time_sum += clock.elapsed();
 			}
 			else if (command == "GIT") {
@@ -461,7 +461,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 }
 
 template<bool safe_mode>
-bool confirm_overwrites() {
+bool confirm_collisions() {
 	auto size = global::date_changed_overwrites.size();
 	if (size) {
 		qpl::println();
@@ -499,7 +499,7 @@ bool confirm_overwrites() {
 		}
 	}
 	else {
-		qpl::println("no problems found.");
+		qpl::println("no collisions found.");
 		qpl::println();
 	}
 	return true;
@@ -536,7 +536,7 @@ void run() {
 		constexpr bool safe_mode = false;
 
 		execute<false, true, true>(lines, time_sum);
-		if (confirm_overwrites<safe_mode>()) {
+		if (confirm_collisions<safe_mode>()) {
 			execute<true, safe_mode, false>(lines, time_sum);
 		}
 
@@ -554,9 +554,6 @@ int main() try {
 	run();
 }
 catch (std::exception& any) {
-
-	//test
-
 	qpl::println("caught exception:\n", any.what());
 	qpl::system_pause();
 }

@@ -9,7 +9,7 @@
 #include "move.hpp"
 #include "exe.hpp"
 
-void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
+void execute(const std::vector<std::string>& lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 
 		info::reset();
@@ -27,9 +27,8 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 		if (args.front().starts_with("//")) {
 			continue;
 		}
-
-		if (state.print) {
-			qpl::println_repeat("\n", 2);
+		if (args.size() == 2u && args[0] == "SOLUTION") {
+			args = std::vector<std::string>{ "MOVE", "GIT", "EXE", args.back() };
 		}
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
@@ -60,23 +59,41 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 			});
 		}
 
+		auto active_command = [&](std::string command) {
+			if (command == "MOVE" && state.location == location::git) {
+				return false;
+			}
+			else if (command == "EXE" && (state.location == location::git || state.action == action::pull)) {
+				return false;
+			}
+			else if (command == "GIT" && state.location == location::local) {
+				return false;
+			}
+			else {
+				return true;
+			}
+		};
+
+		bool any_argument_active = false;
+		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
+			const auto& command = args[i];
+			if (active_command(command)) {
+				any_argument_active = true;
+				break;
+			}
+		}
+		if (!any_argument_active) {
+			continue;
+		}
+
+		if (state.print) {
+			qpl::println_repeat("\n", 2);
+		}
+
 		if (state.print) {
 			for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 				const auto& command = args[i];
-
-				qpl::color color = qpl::color::white;
-				if (command == "MOVE" && state.location == location::git) {
-					color = qpl::color::gray;
-				}
-				else if (command == "EXE" && state.location == location::git) {
-					color = qpl::color::gray;
-				}
-				else if (command == "GIT" && state.location == location::local) {
-					color = qpl::color::gray;
-				}
-				else {
-					color = qpl::color::bright_white;
-				}
+				qpl::color color = active_command(command) ? qpl::color::bright_white : qpl::color::gray;
 				qpl::print(color, args[i], ' ');
 			}
 			qpl::println(qpl::color::aqua, dir_path);

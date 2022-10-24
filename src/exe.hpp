@@ -36,10 +36,10 @@ void exe(const qpl::filesys::path& path, const state& state) {
 	if (state.print) {
 		std::string word;
 		if (destination.exists()) {
-			word = state.check_mode ? "[*]CHANGE" : "CHANGED";
+			word = state.check_mode ? "[*]MODIFY .exe" : "MODIFIED .exe";
 		}
 		else {
-			word = state.check_mode ? "[*]NEW" : "NEW";
+			word = state.check_mode ? "[*]NEW .exe" : "ADDED .exe";
 		}
 		qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 	}

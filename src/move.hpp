@@ -74,7 +74,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 				info::move_changes = true;
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE" : "CHANGED";
+					auto word = state.check_mode ? "[*]MODIFY" : "MODIFIED";
 					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40));
 					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 				}
@@ -86,7 +86,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 			else {
 				info::move_changes = true;
 				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE [BYTES CHANGED] " : "CHANGED [BYTES CHANGED] ";
+					auto word = state.check_mode ? "[*]MODIFY [BYTES CHANGED] " : "MODIFIED [BYTES CHANGED] ";
 					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 				}
 				if (!state.check_mode) {

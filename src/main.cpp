@@ -490,7 +490,15 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 
 		if (state.print) {
 			for (qpl::size i = 0u; i < args.size() - 1; ++i) {
+				const auto& command = args[i];
+				if (command == "MOVE" && state.location == location::git) {
+					qpl::set_console_color(qpl::foreground::gray);
+				}
+				else if (command == "GIT" && state.location == location::local) {
+					qpl::set_console_color(qpl::foreground::gray);
+				}
 				qpl::print(args[i], ' ');
+				qpl::set_console_color_default();
 			}
 			qpl::println(dir_path);
 		}
@@ -498,14 +506,18 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 			const auto& command = args[i];
 			if (command == "MOVE") {
-				qpl::small_clock clock;
-				move(dir_path, state);
-				time_sum += clock.elapsed();
+				if (state.location != location::git) {
+					qpl::small_clock clock;
+					move(dir_path, state);
+					time_sum += clock.elapsed();
+				}
 			}
 			else if (command == "GIT") {
-				qpl::small_clock clock;
-				git(dir_path, state);
-				time_sum += clock.elapsed();
+				if (state.location != location::local) {
+					qpl::small_clock clock;
+					git(dir_path, state);
+					time_sum += clock.elapsed();
+				}
 			}
 			else if (command == "IGNORE") {
 				global::ignore.insert(dir_path);

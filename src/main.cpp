@@ -7,6 +7,7 @@
 #include "collisions.hpp"
 #include "git.hpp"
 #include "move.hpp"
+#include "exe.hpp"
 
 void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
@@ -67,6 +68,9 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				if (command == "MOVE" && state.location == location::git) {
 					color = qpl::color::gray;
 				}
+				else if (command == "EXE" && state.location == location::git) {
+					color = qpl::color::gray;
+				}
 				else if (command == "GIT" && state.location == location::local) {
 					color = qpl::color::gray;
 				}
@@ -98,6 +102,13 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				if (state.location != location::local) {
 					qpl::small_clock clock;
 					git(dir_path, state);
+					time_sum += clock.elapsed();
+				}
+			}
+			else if (command == "EXE") {
+				if (state.location != location::git) {
+					qpl::small_clock clock;
+					exe(dir_path, state);
 					time_sum += clock.elapsed();
 				}
 			}

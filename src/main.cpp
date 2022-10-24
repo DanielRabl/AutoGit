@@ -1,440 +1,12 @@
 #include <qpl/qpl.hpp>
 #include <qpl/winsys.hpp>
 
-enum class action {
-	push,
-	pull,
-	none
-};
-
-enum class location {
-	local,
-	git,
-	both
-};
-struct state {
-	bool check_mode = true;
-	bool print = true;
-	bool find_collisions = true;
-	action action = action::none;
-	::location location = location::both;
-	bool status = false;
-};
-
-
-namespace global {
-	std::unordered_set<std::string> checked;
-	std::unordered_set<std::string> ignore;
-	std::vector<std::string> possible_recent_overwrites;
-	std::vector<std::string> date_changed_overwrites;
-
-	void reset() {
-		possible_recent_overwrites.clear();
-		date_changed_overwrites.clear();
-	}
-	bool find_checked(std::string str) {
-		return checked.find(str) != checked.cend();
-	}
-	bool find_ignored_root(qpl::filesys::path path) {
-		for (auto& i : global::ignore) {
-			if (path.has_root(i)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	bool find_ignored(qpl::filesys::path path) {
-		for (auto& i : global::ignore) {
-			if (path == qpl::filesys::path(i)) {
-				return true;
-			}
-		}
-		return false;
-	}
-}
-
-constexpr bool print_ignore = false;
-
-bool can_touch_working_file(const qpl::filesys::path& path) {
-	if (!path.is_file()) {
-		return true;
-	}
-	auto name = path.get_full_file_name();
-	auto split = qpl::split_string(name, ".");
-
-	if (split.size() == 2u && split[1] == "vcxproj") {
-		return false;
-	}
-	else if (split.size() == 3u && split[1] == "vcxproj" && split[2] == "filters") {
-		return false;
-	}
-	else if (split.size() == 3u && split[1] == "vcxproj" && split[2] == "user") {
-		return false;
-	}
-	return true;
-}
-
-bool can_touch_working_directory(const qpl::filesys::path& path) {
-	if (!path.is_directory()) {
-		return true;
-	}
-	auto dir_name = path.get_directory_name();
-
-	if (dir_name == "Debug") {
-		return false;
-	}
-	else if (dir_name == "Release") {
-		return false;
-	}
-	else if (dir_name == "x64") {
-		return false;
-	}
-	return true;
-}
-
-bool can_touch_working(const qpl::filesys::path& path) {
-	return can_touch_working_directory(path) && can_touch_working_file(path);
-}
-
-bool can_touch_git_directory(const qpl::filesys::path& path) {
-	if (path.is_directory() && path.get_directory_name() == ".git") {
-		return false;
-	}
-	return true;
-}
-
-bool can_touch(const qpl::filesys::path& path, bool is_git) {
-	if (is_git) {
-		return can_touch_git_directory(path);
-	}
-	else {
-		return can_touch_working(path);
-	}
-}
-
-bool is_valid_working_directory(const qpl::filesys::path& path) {
-	auto list = path.list_current_directory();
-	auto project_name = path.get_directory_name();
-	for (auto& path : list) {
-		if (path.is_file()) {
-			if (path.get_file_name() == project_name && path.get_file_extension() == "vcxproj") {
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-void execute_batch(const std::string& path, const std::string& data) {
-	qpl::filesys::create_file(path, data);
-	std::system(path.c_str());
-	qpl::filesys::remove(path);
-}
-
-void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
-	if (global::find_ignored_root(source.ensured_directory_backslash())) {
-		if (print_ignore && global::find_ignored(source.ensured_directory_backslash())) {
-			if (state.print) {
-				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), source);
-			}
-		}
-		global::checked.insert(destination);
-		return;
-	}
-
-	if (source.is_directory()) {
-		if (!destination.exists()) {
-			if (state.print) {
-				auto word = state.check_mode ? "[*]NEW " : "CREATED DIRECTORY ";
-				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
-			}
-			if (!state.check_mode) {
-				destination.ensure_branches_exist();
-			}
-		}
-		global::checked.insert(destination);
-		return;
-	}
-	global::checked.insert(destination);
-
-	if (destination.exists()) {
-		//auto equals = source.file_equals_no_read(destination);
-		auto equals = source.file_content_equals(destination);
-		if (!equals) {
-			auto fs1 = source.file_size();
-			auto fs2 = destination.file_size();
-
-			if (state.find_collisions) {
-				auto time1 = source.last_write_time();
-				auto time2 = destination.last_write_time();
-
-				auto overwrites_newer = time2.time_since_epoch().count() > time1.time_since_epoch().count();
-
-				bool different_time_but_same_data = overwrites_newer && source.file_content_equals(destination);
-
-				if (overwrites_newer) {
-
-					auto ns1 = std::chrono::duration_cast<std::chrono::nanoseconds>(time1.time_since_epoch()).count();
-					auto ns2 = std::chrono::duration_cast<std::chrono::nanoseconds>(time2.time_since_epoch()).count();
-
-					auto diff = qpl::time(ns2 - ns1).string_until_sec("");
-
-					auto time_stamp = qpl::get_time_string(time2, "%Y-%m-%d %H-%M-%S");
-
-					auto str = qpl::to_string(time_stamp, " ", qpl::str_spaced(qpl::to_string("( + ", diff, ")"), 30), " --- ", destination);
-
-					if (different_time_but_same_data) {
-						global::date_changed_overwrites.push_back(str);
-					}
-					else {
-						global::possible_recent_overwrites.push_back(str);
-					}
-				}
-			}
-
-			if (fs1 != fs2) {
-				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
-				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE" : "OVERWRITTEN";
-					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
-					qpl::println(state.check_mode ? qpl::color::white : diff > 0 ? qpl::color::light_green : qpl::color::light_red, str);
-				}
-
-				if (!state.check_mode) {
-					source.copy_overwrite(destination);
-				}
-			}
-			else {
-				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE [BYTES CHANGED] " : "OVERWRITTEN [BYTES CHANGED] ";
-					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
-				}
-				if (!state.check_mode) {
-					source.copy_overwrite(destination);
-				}
-			}
-		}
-	}
-	else {
-		if (state.print) {
-			auto word = state.check_mode ? "[*]NEW " : "COPIED ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
-		}
-		if (!state.check_mode) {
-			source.copy(destination);
-		}
-	}
-}
-
-void clear_path(const qpl::filesys::path& path, const state& state) {
-	if (global::find_ignored_root(path)) {
-		if (print_ignore && global::find_ignored(path)) {
-			if (state.print) {
-				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
-			}
-		}
-		return;
-	}
-
-	path.update();
-	if (!path.exists()) {
-		return;
-	}
-
-	if (!global::find_checked(path.ensured_directory_backslash())) {
-		if (state.print) {
-			auto word = state.check_mode ? "[*]OLD " : "REMOVED OLD ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, qpl::str_lspaced(word, 40), path);
-		}
-		if (!state.check_mode) {
-			qpl::filesys::remove(path.ensured_directory_backslash());
-		}
-	}
-}
-
-void clear_paths(const qpl::filesys::path& path, const state& state) {
-	if (path.is_directory()) {
-		auto paths = path.list_current_directory_tree_include_self();
-		for (auto& path : paths) {
-			clear_path(path, state);
-		}
-	}
-	else {
-		clear_path(path, state);
-	}
-}
-
-void find_removables(const qpl::filesys::path& path, bool is_git, const state& state) {
-	auto paths = path.list_current_directory();
-	for (auto& path : paths) {
-		path.ensure_directory_backslash();
-		if (path.is_file() && global::find_checked(path)) {
-			continue;
-		}
-		if (can_touch(path, is_git)) {
-			clear_paths(path, state);
-		}
-		else {
-			if (state.print && print_ignore) {
-				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
-			}
-		}
-	}
-}
-
-void move(const qpl::filesys::path& path, const state& state) {
-	if (!path.exists()) {
-		qpl::println("MOVE : ", path, " doesn't exist.");
-		return;
-	}
-	if (!is_valid_working_directory(path)) {
-		qpl::println("MOVE : ", path, " is not a valid working directory with a solution file.");
-		return;
-	}
-
-	bool target_is_git = state.action == action::push;
-	bool target_is_work = state.action == action::pull;
-	auto branch = path.branch_size() - 1;
-	std::string target_branch_name;
-
-	qpl::filesys::path target_path;
-	if (state.action == action::pull) {
-		target_branch_name = path.get_directory_name();
-		target_path = path.ensured_directory_backslash().with_branch(branch, "git");
-	}
-	else {
-		target_branch_name = "git";
-		target_path = path;
-	}
-	global::checked.clear();
-
-	auto paths = target_path.list_current_directory();
-	for (auto& path : paths) {
-		if (can_touch(path, target_is_work)) {
-			if (path.is_directory()) {
-				auto dir_paths = path.list_current_directory_tree_include_self();
-				for (auto& path : dir_paths) {
-					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-					perform_actions(path, destination, state);
-				}
-			}
-			else {
-				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-				perform_actions(path, destination, state);
-			}
-		}
-		else {
-			if (state.print && print_ignore) {
-				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
-			}
-		}
-	}
-
-	auto git_path = path.ensured_directory_backslash().with_branch(branch, target_branch_name);
-	find_removables(git_path, target_is_git, state);
-}
-
-void git(const qpl::filesys::path& path, const state& state) {
-	if (state.check_mode && !state.status) {
-		return;
-	}
-
-	auto work_branch = path.branch_size() - 1;
-	auto git_path = path.ensured_directory_backslash().with_branch(work_branch, "git");
-
-	git_path.update();
-	if (!git_path.exists()) {
-		git_path = path;
-	}
-
-	qpl::filesys::path status_batch;
-	qpl::filesys::path exec_batch;
-
-	std::string status_data;
-	std::string status_display_data;
-	std::string exec_data;
-
-
-	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
-	auto set_directory = qpl::to_string(same_dir ? "cd " : "cd /D ", git_path);
-
-	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
-
-	auto output_file = home.appended("output.txt");
-	output_file.create();
-
-	if (state.status) {
-		if (state.action == action::pull || state.action == action::none) {
-			status_batch = home.appended("git_status.bat");
-			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno");
-			status_data = qpl::to_string(status_display_data, " > ", output_file);
-		}
-		else if (state.action == action::push) {
-			status_batch = home.appended("git_status.bat");
-			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
-			status_data = qpl::to_string(status_display_data, " > ", output_file);
-		}
-	}
-	else if (state.action == action::pull) {
-		status_batch = home.appended("git_pull_status.bat");
-		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
-
-		exec_batch = home.appended("git_pull.bat");
-		exec_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git pull");
-	}
-	else if (state.action == action::push) {
-		status_batch = home.appended("git_push_status.bat");
-		status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
-		status_data = qpl::to_string(status_display_data, " > ", output_file);
-
-		exec_batch = home.appended("git_push.bat");
-		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
-	}
-
-	execute_batch(status_batch, status_data);
-
-	auto lines = qpl::split_string(output_file.read(), '\n');
-	if (lines.empty()) {
-		qpl::println("error : no output from git status.");
-		output_file.remove();
-		return;
-	}
-
-	bool clean_tree = false;
-	if (state.action == action::pull) {
-		if (1 < lines.size()) {
-			std::string search = "Your branch is up to date";
-			auto start = lines[1].substr(0u, search.length());
-			clean_tree = qpl::string_equals_ignore_case(start, search);
-		}
-	}
-	else if (state.action == action::push) {
-		std::string search = "nothing to commit, working tree clean";
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
-	}
-
-	if (clean_tree) {
-		if (state.action == action::pull) {
-			qpl::println("git [PULL] status --", qpl::color::light_green, "nothing new to fetch.");
-		}
-		else {
-			qpl::println("git [PUSH] status --", qpl::color::light_green, "nothing new to commit.");
-		}
-	}
-	else {
-		if (!status_display_data.empty()) {
-			execute_batch(status_batch, status_display_data);
-		}
-		if (!exec_data.empty()) {
-			execute_batch(exec_batch, exec_data);
-		}
-	}
-	output_file.remove();
-}
+#include "state.hpp"
+#include "info.hpp"
+#include "access.hpp"
+#include "collisions.hpp"
+#include "git.hpp"
+#include "move.hpp"
 
 void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
@@ -502,7 +74,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				}
 				qpl::print(color, args[i], ' ');
 			}
-			qpl::println(state.status ? qpl::color::aqua : qpl::color::light_yellow, dir_path);
+			qpl::println(qpl::color::aqua, dir_path);
 		}
 
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
@@ -529,7 +101,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				}
 			}
 			else if (command == "IGNORE") {
-				global::ignore.insert(dir_path);
+				info::ignore.insert(dir_path);
 			}
 			else {
 				if (state.print) {
@@ -540,52 +112,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 	}
 }
 
-bool show_collisions(const state& state) {
-	auto action_word = state.action == action::pull ? "PULL" : "PUSH";
-	auto size = global::date_changed_overwrites.size();
-	if (size) {
-		qpl::println();
-		qpl::println("HINT: There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::aqua, action_word, " would overwrite a more recent version, but the data is same.");
-
-		for (auto& i : global::date_changed_overwrites) {
-			qpl::println(qpl::color::light_aqua, ". . . . ", i);
-		}
-	}
-
-	size = global::possible_recent_overwrites.size();
-	if (size) {
-		qpl::println();
-		if (!state.check_mode) {
-			qpl::print("WARNING: ");
-		}
-		qpl::println("There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::red, action_word, " would overwrite a more recent version.");
-		for (auto& i : global::possible_recent_overwrites) {
-			qpl::println(qpl::color::light_red, ". . . . ", i);
-		}
-
-		if (state.status) {
-			return true;
-		}
-		while (true) {
-			qpl::println();
-			qpl::println("Are you SURE you want to overwrite these files? (y/n)");
-			qpl::print("> ");
-
-			auto input = qpl::get_input();
-			if (qpl::string_equals_ignore_case(input, "y")) {
-				qpl::println();
-				return true;
-			}
-			if (qpl::string_equals_ignore_case(input, "n")) {
-				qpl::println();
-				return false;
-			}
-		}
-	}
-	return true;
-}
-
-void determine_state(state& state) {
+void input_state(state& state) {
 	while (true) {
 		qpl::print("PULL changes or PUSH changes > ");
 		auto input = qpl::get_input();
@@ -713,7 +240,7 @@ std::vector<std::string> find_location() {
 		qpl::system_pause();
 	}
 	else {
-		qpl::println("location = \"", location_names[best_index], "\"\n");
+		qpl::println(qpl::color::gray, qpl::to_string("location = \"", location_names[best_index], "\"\n"));
 	}
 
 	return result;
@@ -727,12 +254,12 @@ void run() {
 	}
 
 	while (true) {
-		global::reset();
+		info::reset();
 
 		qpl::time time_sum = 0u;
 
 		state state;
-		determine_state(state);
+		input_state(state);
 
 		if (state.status) {
 			state.print = true;
@@ -745,10 +272,10 @@ void run() {
 
 			auto print = [&](std::string command) {
 				qpl::println();
-				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 24));
+				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
 				auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
 				qpl::println(qpl::color::light_blue, str);
-				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 24));
+				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
 			};
 
 			if (status_push) {
@@ -757,7 +284,7 @@ void run() {
 				execute(location, time_sum, state);
 
 				if (state.location != location::git) {
-					show_collisions(state);
+					verify_collisions(state);
 				}
 			}
 			if (status_pull) {
@@ -765,13 +292,13 @@ void run() {
 					qpl::println_repeat("\n", 2);
 				}
 				print("PULL");
-				global::reset();
+				info::reset();
 
 				state.action = action::pull;
 				execute(location, time_sum, state);
 
 				if (state.location != location::git) {
-					show_collisions(state);
+					verify_collisions(state);
 				}
 			}
 		}
@@ -783,7 +310,7 @@ void run() {
 			state.check_mode = true;
 
 			execute(location, time_sum, state);
-			if (show_collisions(state)) {
+			if (verify_collisions(state)) {
 				state.check_mode = check_mode;
 				state.print = true;
 				state.find_collisions = false;

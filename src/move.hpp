@@ -220,11 +220,13 @@ void move(const qpl::filesys::path& path, const state& state) {
 	auto git_path = path.ensured_directory_backslash().with_branch(branch, target_branch_name);
 	find_removables(git_path, state);
 
-	auto word = state.action == action::pull ? "PULL" : "PUSH";
-	if (info::move_changes) {
-		qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories have changed.");
-	}
-	else {
-		qpl::println("move [", word, "] status >> ", qpl::color::light_green, "directories are synchronized.");
+	if (state.print) {
+		auto word = state.action == action::pull ? "PULL" : "PUSH";
+		if (info::move_changes) {
+			qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories have changed.");
+		}
+		else {
+			qpl::println("move [", word, "] status >> ", qpl::color::light_green, "directories are synchronized.");
+		}
 	}
 }

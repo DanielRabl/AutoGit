@@ -190,7 +190,6 @@ void input_state(state& state) {
 			qpl::println("\"", split, "\" invalid arguments.\n");
 			continue;
 		}
-		qpl::println_repeat("\n", 2);
 		return;
 	}
 }
@@ -311,6 +310,7 @@ void run() {
 			};
 
 			if (status_push) {
+				qpl::println_repeat("\n", 2);
 				print("PUSH");
 				state.action = action::push;
 				execute(location, time_sum, state);

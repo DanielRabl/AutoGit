@@ -33,6 +33,10 @@ void exe(const qpl::filesys::path& path, const state& state) {
 	auto destination = parent.appended(qpl::to_string(project_name, '/', target_name, ".exe"));
 	auto best = executables.back().second;
 
+	if (destination.exists() && best.file_content_equals(destination)) {
+		return;
+	}
+
 	if (state.print) {
 		std::string word;
 		if (destination.exists()) {

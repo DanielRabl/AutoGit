@@ -1,12 +1,20 @@
 #include <qpl/qpl.hpp>
 #include <qpl/winsys.hpp>
 
+enum class action {
+	push,
+	pull,
+	status,
+	none
+};
 struct state {
 	bool check_mode = true;
 	bool print = true;
 	bool find_collisions = true;
-	bool pull = false;
+	action action = action::none;
+	bool local = false;
 };
+
 
 namespace global {
 	std::unordered_set<std::string> checked;
@@ -278,13 +286,13 @@ void move(const qpl::filesys::path& path, const state& state) {
 		return;
 	}
 
-	bool target_is_git = !state.pull;
-	bool target_is_work = state.pull;
+	bool target_is_git = state.action == action::push;
+	bool target_is_work = state.action == action::pull;
 	auto branch = path.branch_size() - 1;
 	std::string target_branch_name;
 
 	qpl::filesys::path target_path;
-	if (state.pull) {
+	if (state.action == action::pull) {
 		target_branch_name = path.get_directory_name();
 		target_path = path.ensured_directory_backslash().with_branch(branch, "git");
 	}
@@ -352,14 +360,14 @@ void git(const qpl::filesys::path& path, const state& state) {
 	qpl::filesys::path git_status = home.appended("git_status.bat");
 	std::string git_status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
 
-	if (state.pull) {
+	if (state.action == action::pull) {
 		status_batch = home.appended("git_pull_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git pull");
 	}
-	else {
+	else if (state.action == action::push) {
 		status_batch = home.appended("git_push_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status > ", output_file);
 
@@ -377,22 +385,22 @@ void git(const qpl::filesys::path& path, const state& state) {
 		return;
 	}
 
-	bool clean_tree = false;
-	if (state.pull) {
+	bool clean_tree = false; 
+	if (state.action == action::pull) {
 		if (1 < lines.size()) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
 			clean_tree = qpl::string_equals_ignore_case(start, search);
 		}
 	}
-	else {
+	else if (state.action == action::push) {
 		std::string search = "nothing to commit, working tree clean";
 		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
 	if (clean_tree) {
 		qpl::set_console_color(qpl::color::aqua);
-		if (state.pull) {
+		if (state.action == action::pull) {
 			qpl::println("git status : branch is up-to-date.");
 		}
 		else {
@@ -401,7 +409,7 @@ void git(const qpl::filesys::path& path, const state& state) {
 		qpl::set_console_color_default();
 	}
 	else {
-		if (!state.pull) {
+		if (state.action == action::push) {
 			qpl::filesys::create_file(git_status, git_status_data);
 			std::system(git_status.c_str());
 			qpl::filesys::remove(git_status);
@@ -441,10 +449,10 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 
-		if (state.pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
+		if (state.action == action::pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
 			std::swap(args[0], args[1]);
 		}
-		else if (!state.pull && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
+		else if (state.action == action::push && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
 			std::swap(args[0], args[1]);
 		}
 
@@ -539,27 +547,30 @@ void determine_pull_or_push(state& state) {
 		}
 
 		state.check_mode = false;
-		std::string argument = split.front();
-		for (qpl::size i = 0u; i < split.size(); ++i) {
-			if (qpl::string_equals_ignore_case(split[i], "check")) {
+		state.local = false;
+		state.action = action::none;
+		for (auto& arg : split) {
+			if (qpl::string_equals_ignore_case(arg, "check")) {
 				state.check_mode = true;
-				if (i < split.size() - 1) {
-					argument = split[i + 1];
-				}
+			}
+			else if (qpl::string_equals_ignore_case(arg, "local")) {
+				state.local = true;
+			}
+			else if (qpl::string_equals_ignore_case(arg, "git")) {
+				state.local = false;
+			}
+			else if (qpl::string_equals_ignore_case(arg, "push")) {
+				state.action = action::push;
+			}
+			else if (qpl::string_equals_ignore_case(arg, "pull")) {
+				state.action = action::pull;
 			}
 		}
-
-		if (qpl::string_equals_ignore_case(argument, "pull")) {
-			state.pull = true;
-			return;
+		if (state.action == action::none) {
+			qpl::println("\"", split, "\" invalid arguments.\n");
+			continue;
 		}
-		else if (qpl::string_equals_ignore_case(argument, "push")) {
-			state.pull = false;
-			return;
-		}
-		else {
-			qpl::println("\"", argument, "\" invalid command.\n");
-		}
+		return;
 	}
 }
 

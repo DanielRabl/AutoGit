@@ -4,7 +4,6 @@
 enum class action {
 	push,
 	pull,
-	status,
 	none
 };
 
@@ -19,6 +18,7 @@ struct state {
 	bool find_collisions = true;
 	action action = action::none;
 	::location location = location::both;
+	bool status = false;
 };
 
 
@@ -28,6 +28,10 @@ namespace global {
 	std::vector<std::string> possible_recent_overwrites;
 	std::vector<std::string> date_changed_overwrites;
 
+	void reset() {
+		possible_recent_overwrites.clear();
+		date_changed_overwrites.clear();
+	}
 	bool find_checked(std::string str) {
 		return checked.find(str) != checked.cend();
 	}
@@ -345,8 +349,7 @@ void move(const qpl::filesys::path& path, const state& state) {
 }
 
 void git(const qpl::filesys::path& path, const state& state) {
-
-	if (state.check_mode) {
+	if (state.check_mode && !state.status) {
 		return;
 	}
 
@@ -371,11 +374,21 @@ void git(const qpl::filesys::path& path, const state& state) {
 	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
 
 	auto output_file = home.appended("output.txt");
-	if (state.action != action::status) {
+	if (!state.status) {
 		output_file.create();
 	}
 
-	if (state.action == action::pull) {
+	if (state.status) {
+		if (state.action == action::pull || state.action == action::none) {
+			status_batch = home.appended("git_status.bat");
+			status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git fetch && git status -uno");
+		}
+		else if (state.action == action::push) {
+			status_batch = home.appended("git_status.bat");
+			status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
+		}
+	}
+	else if (state.action == action::pull) {
 		status_batch = home.appended("git_pull_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
@@ -389,14 +402,10 @@ void git(const qpl::filesys::path& path, const state& state) {
 		exec_batch = home.appended("git_push.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
 	}
-	else if (state.action == action::status) {
-		status_batch = home.appended("git_status.bat");
-		status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on  && git fetch && git status -uno");
-	}
 
 	execute_batch(status_batch, status_data);
 
-	if (state.action != action::status) {
+	if (!state.status) {
 		auto lines = qpl::split_string(output_file.read(), '\n');
 		if (lines.empty()) {
 			qpl::println("error : no output from git status.");
@@ -500,7 +509,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 					qpl::set_console_color(qpl::foreground::gray);
 				}
 				else {
-					qpl::set_console_color(qpl::foreground::aqua);
+					qpl::set_console_color(qpl::foreground::bright_white);
 				}
 				qpl::print(args[i], ' ');
 				qpl::set_console_color_default();
@@ -513,7 +522,14 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 			if (command == "MOVE") {
 				if (state.location != location::git) {
 					qpl::small_clock clock;
-					move(dir_path, state);
+					if (state.status) {
+						auto status_state = state;
+						status_state.check_mode = true;
+						move(dir_path, status_state);
+					}
+					else {
+						move(dir_path, state);
+					}
 					time_sum += clock.elapsed();
 				}
 			}
@@ -536,7 +552,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 	}
 }
 
-bool confirm_collisions(const state& state) {
+bool show_collisions(const state& state) {
 	auto size = global::date_changed_overwrites.size();
 	if (size) {
 		qpl::println();
@@ -560,7 +576,7 @@ bool confirm_collisions(const state& state) {
 			qpl::println(i);
 		}
 
-		if (state.check_mode) {
+		if (state.status) {
 			return true;
 		}
 		while (true) {
@@ -585,7 +601,7 @@ bool confirm_collisions(const state& state) {
 	return true;
 }
 
-void determine_pull_or_push(state& state) {
+void determine_state(state& state) {
 	while (true) {
 		qpl::print("PULL changes or PUSH changes > ");
 		auto input = qpl::get_input();
@@ -597,6 +613,7 @@ void determine_pull_or_push(state& state) {
 
 		bool abort = false;
 		state.check_mode = false;
+		state.status = false;
 		state.location = location::both;
 		state.action = action::none;
 		for (auto& arg : split) {
@@ -616,7 +633,7 @@ void determine_pull_or_push(state& state) {
 				state.action = action::pull;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "status")) {
-				state.action = action::status;
+				state.status = true;
 			}
 			else {
 				qpl::println("\"", arg, "\" invalid argument.\n");
@@ -626,7 +643,7 @@ void determine_pull_or_push(state& state) {
 		if (abort) {
 			continue;
 		}
-		if (state.action == action::none) {
+		if (state.action == action::none && !state.status) {
 			qpl::println("\"", split, "\" invalid arguments.\n");
 			continue;
 		}
@@ -726,25 +743,58 @@ void run() {
 	}
 
 	while (true) {
-		state state;
-		state.print = false;
-		state.find_collisions = true;
-
-		determine_pull_or_push(state);
-		auto check_mode = state.check_mode;
-		state.check_mode = true;
+		global::reset();
 
 		qpl::time time_sum = 0u;
 
-		execute(location, time_sum, state);
-		if (confirm_collisions(state)) {
+		state state;
+		determine_state(state);
 
-			state.check_mode = check_mode;
+		if (state.status) {
 			state.print = true;
-			state.find_collisions = false;
-			execute(location, time_sum, state);
-		}
+			state.check_mode = true;
+			
+			bool status_push = (state.action == action::push) || (state.action == action::none);
+			bool status_pull = (state.action == action::pull) || (state.action == action::none);
 
+			auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
+			if (status_push) {
+				qpl::println();
+				auto str = qpl::to_string("STATUS CHECK - ", location_string, " PUSH");
+				color_print(str, qpl::foreground::light_blue, true);
+
+				state.action = action::push;
+				execute(location, time_sum, state);
+			}
+			if (status_pull) {
+				qpl::println();
+				auto str = qpl::to_string("STATUS CHECK - ", location_string, " PULL");
+				color_print(str, qpl::foreground::light_blue, true);
+
+				state.action = action::pull;
+				execute(location, time_sum, state);
+
+				if (state.location != location::git) {
+					show_collisions(state);
+				}
+			}
+		}
+		else {
+			state.print = false;
+			state.find_collisions = true;
+
+			auto check_mode = state.check_mode;
+			state.check_mode = true;
+
+			execute(location, time_sum, state);
+			if (show_collisions(state)) {
+				state.check_mode = check_mode;
+				state.print = true;
+				state.find_collisions = false;
+				execute(location, time_sum, state);
+			}
+		}
+		
 		qpl::println();
 		qpl::println_repeat("- ", 40);
 		qpl::println();

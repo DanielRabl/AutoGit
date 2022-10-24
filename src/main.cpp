@@ -131,13 +131,6 @@ void execute_batch(const std::string& path, const std::string& data) {
 	qpl::filesys::remove(path);
 }
 
-void color_print(std::string string, qpl::cc color, bool use_color) {
-	if (use_color) {
-		qpl::print(color);
-	}
-	qpl::println(string);
-}
-
 void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
 	if (global::find_ignored_root(source.ensured_directory_backslash())) {
 		if (print_ignore && global::find_ignored(source.ensured_directory_backslash())) {
@@ -153,8 +146,8 @@ void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path&
 	if (source.is_directory()) {
 		if (!destination.exists()) {
 			if (state.print) {
-				auto word = state.check_mode ? "[*]CREATED DIRECTORY  " : "CREATED DIRECTORY  ";
-				color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_green, !state.check_mode);
+				auto word = state.check_mode ? "[*]NEW " : "CREATED DIRECTORY ";
+				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 			}
 			if (!state.check_mode) {
 				destination.ensure_branches_exist();
@@ -203,9 +196,9 @@ void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path&
 			if (fs1 != fs2) {
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
-					auto word = state.check_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
+					auto word = state.check_mode ? "[*]CHANGE" : "OVERWRITTEN";
 					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
-					color_print(str, diff > 0 ? qpl::color::light_green : qpl::color::light_red, !state.check_mode);
+					qpl::println(state.check_mode ? qpl::color::white : diff > 0 ? qpl::color::light_green : qpl::color::light_red, str);
 				}
 
 				if (!state.check_mode) {
@@ -214,8 +207,8 @@ void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path&
 			}
 			else {
 				if (state.print) {
-					auto word = state.check_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
-					color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_aqua, !state.check_mode);
+					auto word = state.check_mode ? "[*]CHANGE [BYTES CHANGED] " : "OVERWRITTEN [BYTES CHANGED] ";
+					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 				}
 				if (!state.check_mode) {
 					source.copy_overwrite(destination);
@@ -225,8 +218,8 @@ void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path&
 	}
 	else {
 		if (state.print) {
-			auto word = state.check_mode ? "[*]COPIED " : "COPIED ";
-			color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_green, !state.check_mode);
+			auto word = state.check_mode ? "[*]NEW " : "COPIED ";
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 		}
 		if (!state.check_mode) {
 			source.copy(destination);
@@ -252,8 +245,8 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 
 	if (!global::find_checked(path.ensured_directory_backslash())) {
 		if (state.print) {
-			auto word = state.check_mode ? "[*]REMOVED " : "REMOVED ";
-			color_print(qpl::to_string(qpl::str_lspaced(word, 40), path), qpl::color::light_red, !state.check_mode);
+			auto word = state.check_mode ? "[*]OLD " : "REMOVED OLD ";
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, qpl::str_lspaced(word, 40), path);
 		}
 		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
@@ -509,7 +502,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				}
 				qpl::print(color, args[i], ' ');
 			}
-			qpl::println(qpl::color::aqua, dir_path);
+			qpl::println(state.status ? qpl::color::aqua : qpl::color::light_yellow, dir_path);
 		}
 
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
@@ -548,14 +541,14 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 }
 
 bool show_collisions(const state& state) {
+	auto action_word = state.action == action::pull ? "PULL" : "PUSH";
 	auto size = global::date_changed_overwrites.size();
 	if (size) {
 		qpl::println();
-		qpl::println("HINT: there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version, but the data is same.");
-		qpl::println();
+		qpl::println("HINT: There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::aqua, action_word, " would overwrite a more recent version, but the data is same.");
 
 		for (auto& i : global::date_changed_overwrites) {
-			qpl::println(i);
+			qpl::println(qpl::color::light_aqua, ". . . . ", i);
 		}
 	}
 
@@ -565,10 +558,9 @@ bool show_collisions(const state& state) {
 		if (!state.check_mode) {
 			qpl::print("WARNING: ");
 		}
-		qpl::println("there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version.");
-		qpl::println();
+		qpl::println("There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::red, action_word, " would overwrite a more recent version.");
 		for (auto& i : global::possible_recent_overwrites) {
-			qpl::println(i);
+			qpl::println(qpl::color::light_red, ". . . . ", i);
 		}
 
 		if (state.status) {
@@ -589,9 +581,6 @@ bool show_collisions(const state& state) {
 				return false;
 			}
 		}
-	}
-	else {
-		qpl::println("no collisions found.");
 	}
 	return true;
 }
@@ -756,22 +745,28 @@ void run() {
 
 			auto print = [&](std::string command) {
 				qpl::println();
-				color_print(qpl::to_string_repeat("= ", 22), qpl::foreground::light_blue, true);
+				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 24));
 				auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
-				color_print(str, qpl::foreground::light_blue, true);
-				color_print(qpl::to_string_repeat("= ", 22), qpl::foreground::light_blue, true);
+				qpl::println(qpl::color::light_blue, str);
+				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 24));
 			};
 
 			if (status_push) {
 				print("PUSH");
 				state.action = action::push;
 				execute(location, time_sum, state);
+
+				if (state.location != location::git) {
+					show_collisions(state);
+				}
 			}
 			if (status_pull) {
 				if (status_push && state.print) {
 					qpl::println_repeat("\n", 2);
 				}
 				print("PULL");
+				global::reset();
+
 				state.action = action::pull;
 				execute(location, time_sum, state);
 
@@ -797,12 +792,12 @@ void run() {
 		}
 		
 		qpl::println();
-		qpl::println_repeat("- ", 20);
 		qpl::println();
-		qpl::println("TOTAL : ", time_sum.string_until_ms());
-		qpl::println();
-		qpl::println_repeat("- ", 20);
-		qpl::println_repeat("\n", 4);
+		auto str = qpl::to_string("TOTAL : ", time_sum.string_until_ms());
+		qpl::println_repeat("~", str.length());
+		qpl::println(str);
+		qpl::println_repeat("~", str.length());
+		qpl::println_repeat("\n", 3);
 	}
 }
 

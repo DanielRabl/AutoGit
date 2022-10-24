@@ -18,7 +18,7 @@ struct state {
 	bool print = true;
 	bool find_collisions = true;
 	action action = action::none;
-	location location = location::both;
+	::location location = location::both;
 };
 
 
@@ -189,7 +189,12 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
 					auto word = state.check_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
-					qpl::set_console_color(qpl::color::light_green);
+					if (diff > 0) {
+						qpl::set_console_color(qpl::color::light_green);
+					}
+					else {
+						qpl::set_console_color(qpl::color::light_red);
+					}
 					qpl::println(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
 					qpl::set_console_color_default();
 				}
@@ -201,7 +206,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 			else {
 				if (state.print) {
 					auto word = state.check_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
-					qpl::set_console_color(qpl::color::light_green);
+					qpl::set_console_color(qpl::color::light_aqua);
 					qpl::println(qpl::str_lspaced(word, 40), destination);
 					qpl::set_console_color_default();
 				}
@@ -243,7 +248,9 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 	if (!global::find_checked(path.ensured_directory_backslash())) {
 		if (state.print) {
 			auto word = state.check_mode ? "[*]REMOVED " : "REMOVED ";
+			qpl::set_console_color(qpl::color::light_red);
 			qpl::println(qpl::str_lspaced(word, 40), path);
+			qpl::set_console_color_default();
 		}
 		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
@@ -685,7 +692,7 @@ std::vector<std::string> find_location() {
 		qpl::system_pause();
 	}
 	else {
-		qpl::println("location = \"", location_names[best_index], "\"");
+		qpl::println("location = \"", location_names[best_index], "\"\n");
 	}
 
 	return result;

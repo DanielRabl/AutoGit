@@ -109,6 +109,8 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 					qpl::println("unkown command \"", command, "\" ignored.");
 				}
 			}
+		}
+		if (state.print || state.find_collisions) {
 			print_collisions(state);
 		}
 	}

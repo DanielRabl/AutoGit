@@ -121,7 +121,23 @@ bool is_valid_working_directory(const qpl::filesys::path& path) {
 	return false;
 }
 
-void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
+void execute_batch(const std::string& path, const std::string& data) {
+	qpl::filesys::create_file(path, data);
+	std::system(path.c_str());
+	qpl::filesys::remove(path);
+}
+
+void color_print(std::string string, qpl::cc color, bool use_color) {
+	if (use_color) {
+		qpl::set_console_color(color);
+	}
+	qpl::println(string);
+	if (use_color) {
+		qpl::set_console_color_default();
+	}
+}
+
+void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
 	if (global::find_ignored_root(source.ensured_directory_backslash())) {
 		if (print_ignore && global::find_ignored(source.ensured_directory_backslash())) {
 			if (state.print) {
@@ -137,9 +153,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 		if (!destination.exists()) {
 			if (state.print) {
 				auto word = state.check_mode ? "[*]CREATED DIRECTORY  " : "CREATED DIRECTORY  ";
-				qpl::set_console_color(qpl::color::light_green);
-				qpl::println(qpl::str_lspaced(word, 40), destination);
-				qpl::set_console_color_default();
+				color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_green, !state.check_mode);
 			}
 			if (!state.check_mode) {
 				destination.ensure_branches_exist();
@@ -189,14 +203,8 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
 					auto word = state.check_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
-					if (diff > 0) {
-						qpl::set_console_color(qpl::color::light_green);
-					}
-					else {
-						qpl::set_console_color(qpl::color::light_red);
-					}
-					qpl::println(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
-					qpl::set_console_color_default();
+					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
+					color_print(str, diff > 0 ? qpl::color::light_green : qpl::color::light_red, !state.check_mode);
 				}
 
 				if (!state.check_mode) {
@@ -206,9 +214,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 			else {
 				if (state.print) {
 					auto word = state.check_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
-					qpl::set_console_color(qpl::color::light_aqua);
-					qpl::println(qpl::str_lspaced(word, 40), destination);
-					qpl::set_console_color_default();
+					color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_aqua, !state.check_mode);
 				}
 				if (!state.check_mode) {
 					source.copy_overwrite(destination);
@@ -219,9 +225,7 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 	else {
 		if (state.print) {
 			auto word = state.check_mode ? "[*]COPIED " : "COPIED ";
-			qpl::set_console_color(qpl::color::light_green);
-			qpl::println(qpl::str_lspaced(word, 40), destination);
-			qpl::set_console_color_default();
+			color_print(qpl::to_string(qpl::str_lspaced(word, 40), destination), qpl::color::light_green, !state.check_mode);
 		}
 		if (!state.check_mode) {
 			source.copy(destination);
@@ -248,9 +252,7 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 	if (!global::find_checked(path.ensured_directory_backslash())) {
 		if (state.print) {
 			auto word = state.check_mode ? "[*]REMOVED " : "REMOVED ";
-			qpl::set_console_color(qpl::color::light_red);
-			qpl::println(qpl::str_lspaced(word, 40), path);
-			qpl::set_console_color_default();
+			color_print(qpl::to_string(qpl::str_lspaced(word, 40), path), qpl::color::light_red, !state.check_mode);
 		}
 		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
@@ -322,12 +324,12 @@ void move(const qpl::filesys::path& path, const state& state) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
 					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-					check_overwrite(path, destination, state);
+					perform_actions(path, destination, state);
 				}
 			}
 			else {
 				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-				check_overwrite(path, destination, state);
+				perform_actions(path, destination, state);
 			}
 		}
 		else {
@@ -362,16 +364,16 @@ void git(const qpl::filesys::path& path, const state& state) {
 	qpl::filesys::path exec_batch;
 	std::string exec_data;
 
+
 	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
 	auto set_directory = qpl::to_string(same_dir ? "cd " : "cd /D ", git_path);
 
 	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
 
 	auto output_file = home.appended("output.txt");
-	output_file.create();
-
-	qpl::filesys::path git_status = home.appended("git_status.bat");
-	std::string git_status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
+	if (state.action != action::status) {
+		output_file.create();
+	}
 
 	if (state.action == action::pull) {
 		status_batch = home.appended("git_pull_status.bat");
@@ -387,53 +389,53 @@ void git(const qpl::filesys::path& path, const state& state) {
 		exec_batch = home.appended("git_push.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
 	}
-
-	qpl::filesys::create_file(status_batch, status_data);
-	std::system(status_batch.c_str());
-	qpl::filesys::remove(status_batch);
-
-	auto lines = qpl::split_string(output_file.read(), '\n');
-	if (lines.empty()) {
-		qpl::println("error : no output from git status.");
-		return;
+	else if (state.action == action::status) {
+		status_batch = home.appended("git_status.bat");
+		status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on  && git fetch && git status -uno");
 	}
 
-	bool clean_tree = false; 
-	if (state.action == action::pull) {
-		if (1 < lines.size()) {
-			std::string search = "Your branch is up to date";
-			auto start = lines[1].substr(0u, search.length());
-			clean_tree = qpl::string_equals_ignore_case(start, search);
+	execute_batch(status_batch, status_data);
+
+	if (state.action != action::status) {
+		auto lines = qpl::split_string(output_file.read(), '\n');
+		if (lines.empty()) {
+			qpl::println("error : no output from git status.");
+			return;
 		}
-	}
-	else if (state.action == action::push) {
-		std::string search = "nothing to commit, working tree clean";
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
-	}
 
-	if (clean_tree) {
-		qpl::set_console_color(qpl::color::aqua);
+		bool clean_tree = false;
 		if (state.action == action::pull) {
-			qpl::println("git status : branch is up-to-date.");
+			if (1 < lines.size()) {
+				std::string search = "Your branch is up to date";
+				auto start = lines[1].substr(0u, search.length());
+				clean_tree = qpl::string_equals_ignore_case(start, search);
+			}
+		}
+		else if (state.action == action::push) {
+			std::string search = "nothing to commit, working tree clean";
+			clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
+		}
+
+		if (clean_tree) {
+			qpl::set_console_color(qpl::color::aqua);
+			if (state.action == action::pull) {
+				qpl::println("git status : branch is up-to-date.");
+			}
+			else {
+				qpl::println("git status : nothing new to commit.");
+			}
+			qpl::set_console_color_default();
 		}
 		else {
-			qpl::println("git status : nothing new to commit.");
+			if (state.action == action::push) {
+				auto batch = home.appended("git_push_status.bat");
+				auto data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
+				execute_batch(batch, data);
+			}
+			execute_batch(exec_batch, exec_data);
 		}
-		qpl::set_console_color_default();
+		output_file.remove();
 	}
-	else {
-		if (state.action == action::push) {
-			qpl::filesys::create_file(git_status, git_status_data);
-			std::system(git_status.c_str());
-			qpl::filesys::remove(git_status);
-		}
-
-		qpl::filesys::create_file(exec_batch, exec_data);
-		std::system(exec_batch.c_str());
-		qpl::filesys::remove(exec_batch);
-	}
-
-	output_file.remove();
 }
 
 void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
@@ -496,6 +498,9 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 				}
 				else if (command == "GIT" && state.location == location::local) {
 					qpl::set_console_color(qpl::foreground::gray);
+				}
+				else {
+					qpl::set_console_color(qpl::foreground::aqua);
 				}
 				qpl::print(args[i], ' ');
 				qpl::set_console_color_default();
@@ -609,6 +614,9 @@ void determine_pull_or_push(state& state) {
 			}
 			else if (qpl::string_equals_ignore_case(arg, "pull")) {
 				state.action = action::pull;
+			}
+			else if (qpl::string_equals_ignore_case(arg, "status")) {
+				state.action = action::status;
 			}
 			else {
 				qpl::println("\"", arg, "\" invalid argument.\n");

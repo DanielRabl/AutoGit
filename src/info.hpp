@@ -6,11 +6,16 @@
 namespace info {
 	std::unordered_set<std::string> checked;
 	std::unordered_set<std::string> ignore;
+
+	qpl::size total_change_sum = 0u;
 	std::vector<std::string> data_overwrites;
 	std::vector<std::string> time_overwrites;
 	std::vector<std::string> removes;
 	bool move_changes = false;
 
+	void total_reset() {
+		total_change_sum = 0u;
+	}
 	void reset() {
 		data_overwrites.clear();
 		time_overwrites.clear();

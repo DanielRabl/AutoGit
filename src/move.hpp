@@ -61,9 +61,11 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 
 					if (different_time_but_same_data) {
 						info::time_overwrites.push_back(str);
+						++info::total_change_sum;
 					}
 					else {
 						info::data_overwrites.push_back(str);
+						++info::total_change_sum;
 					}
 				}
 			}
@@ -72,9 +74,9 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 				info::move_changes = true;
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE" : "OVERWRITTEN";
+					auto word = state.check_mode ? "[*]CHANGE" : "CHANGED";
 					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40));
-					qpl::println(state.check_mode ? qpl::color::white : diff > 0 ? qpl::color::light_green : qpl::color::light_red, str, destination);
+					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 				}
 
 				if (!state.check_mode) {
@@ -84,7 +86,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 			else {
 				info::move_changes = true;
 				if (state.print) {
-					auto word = state.check_mode ? "[*]CHANGE [BYTES CHANGED] " : "OVERWRITTEN [BYTES CHANGED] ";
+					auto word = state.check_mode ? "[*]CHANGE [BYTES CHANGED] " : "CHANGED [BYTES CHANGED] ";
 					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 				}
 				if (!state.check_mode) {
@@ -95,7 +97,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 	}
 	else {
 		if (state.print) {
-			auto word = state.check_mode ? "[*]NEW " : "NEW ";
+			auto word = state.check_mode ? "[*]NEW " : "ADDED ";
 			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
 		}
 		if (!state.check_mode) {
@@ -122,6 +124,7 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 
 	if (!info::find_checked(path.ensured_directory_backslash())) {
 		info::removes.push_back(path);
+		++info::total_change_sum;
 		if (state.print) {
 			info::move_changes = true;
 			auto word = state.check_mode ? "[*]REMOVE " : "REMOVED ";

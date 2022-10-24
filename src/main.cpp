@@ -11,6 +11,7 @@
 void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 
+		info::reset();
 		auto args = qpl::split_string_whitespace(lines[i]);
 
 		if (args.empty()) {
@@ -108,6 +109,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 					qpl::println("unkown command \"", command, "\" ignored.");
 				}
 			}
+			print_collisions(state);
 		}
 	}
 }
@@ -158,6 +160,7 @@ void input_state(state& state) {
 			qpl::println("\"", split, "\" invalid arguments.\n");
 			continue;
 		}
+		qpl::println_repeat("\n", 2);
 		return;
 	}
 }
@@ -254,7 +257,7 @@ void run() {
 	}
 
 	while (true) {
-		info::reset();
+		info::total_reset();
 
 		qpl::time time_sum = 0u;
 
@@ -271,7 +274,6 @@ void run() {
 			auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
 
 			auto print = [&](std::string command) {
-				qpl::println();
 				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
 				auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
 				qpl::println(qpl::color::light_blue, str);
@@ -292,7 +294,7 @@ void run() {
 					qpl::println_repeat("\n", 2);
 				}
 				print("PULL");
-				info::reset();
+				info::total_reset();
 
 				state.action = action::pull;
 				execute(location, time_sum, state);

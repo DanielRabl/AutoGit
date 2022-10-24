@@ -85,10 +85,10 @@ void git(const qpl::filesys::path& path, const state& state) {
 
 	if (clean_tree) {
 		if (state.action == action::pull) {
-			qpl::println("git  [PULL] status >> ", qpl::color::light_yellow, "nothing new to fetch.");
+			qpl::println("git [PULL] status >> ", qpl::color::light_yellow, "nothing new to fetch.");
 		}
 		else {
-			qpl::println("git  [PUSH] status >> ", qpl::color::light_yellow, "nothing new to commit.");
+			qpl::println("git [PUSH] status >> ", qpl::color::light_yellow, "nothing new to commit.");
 		}
 	}
 	else {

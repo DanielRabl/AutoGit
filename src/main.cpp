@@ -1,13 +1,19 @@
 #include <qpl/qpl.hpp>
 #include <qpl/winsys.hpp>
 
+struct state {
+	bool check_mode = true;
+	bool print = true;
+	bool find_collisions = true;
+	bool pull = false;
+};
+
 namespace global {
 	std::unordered_set<std::string> checked;
 	std::unordered_set<std::string> ignore;
 	std::vector<std::string> possible_recent_overwrites;
 	std::vector<std::string> date_changed_overwrites;
-	bool pull;
-		 
+
 	bool find_checked(std::string str) {
 		return checked.find(str) != checked.cend();
 	}
@@ -101,12 +107,11 @@ bool is_valid_working_directory(const qpl::filesys::path& path) {
 	return false;
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path& destination) {
+void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
 	if (global::find_ignored_root(source.ensured_directory_backslash())) {
 		if (print_ignore && global::find_ignored(source.ensured_directory_backslash())) {
-			if constexpr (print) {
-				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+			if (state.print) {
+				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
 				qpl::println(qpl::str_lspaced(word, 40), source);
 			}
 		}
@@ -116,13 +121,13 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 
 	if (source.is_directory()) {
 		if (!destination.exists()) {
-			if constexpr (print) {
-				auto word = safe_mode ? "[*]CREATED DIRECTORY  " : "CREATED DIRECTORY  ";
+			if (state.print) {
+				auto word = state.check_mode ? "[*]CREATED DIRECTORY  " : "CREATED DIRECTORY  ";
 				qpl::set_console_color(qpl::color::light_green);
 				qpl::println(qpl::str_lspaced(word, 40), destination);
 				qpl::set_console_color_default();
 			}
-			if constexpr (!safe_mode) {
+			if (!state.check_mode) {
 				destination.ensure_branches_exist();
 			}
 		}
@@ -132,12 +137,13 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 	global::checked.insert(destination);
 
 	if (destination.exists()) {
-		auto equals = source.file_equals_no_read(destination);
+		//auto equals = source.file_equals_no_read(destination);
+		auto equals = source.file_content_equals(destination);
 		if (!equals) {
 			auto fs1 = source.file_size();
 			auto fs2 = destination.file_size();
 
-			if constexpr (find_collisions) {
+			if (state.find_collisions) {
 				auto time1 = source.last_write_time();
 				auto time2 = destination.last_write_time();
 
@@ -167,49 +173,48 @@ void check_overwrite(const qpl::filesys::path& source, const qpl::filesys::path&
 
 			if (fs1 != fs2) {
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
-				if constexpr (print) {
-					auto word = safe_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
+				if (state.print) {
+					auto word = state.check_mode ? "[*]OVERWRITTEN" : "OVERWRITTEN";
 					qpl::set_console_color(qpl::color::light_green);
 					qpl::println(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40), destination);
 					qpl::set_console_color_default();
 				}
 
-				if constexpr (!safe_mode) {
+				if (!state.check_mode) {
 					source.copy_overwrite(destination);
 				}
 			}
 			else {
-				if constexpr (print) {
-					auto word = safe_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
+				if (state.print) {
+					auto word = state.check_mode ? "[*]OVERWRITTEN [DATA CHANGED] " : "OVERWRITTEN [DATA CHANGED] ";
 					qpl::set_console_color(qpl::color::light_green);
 					qpl::println(qpl::str_lspaced(word, 40), destination);
 					qpl::set_console_color_default();
 				}
-				if constexpr (!safe_mode) {
+				if (!state.check_mode) {
 					source.copy_overwrite(destination);
 				}
 			}
 		}
 	}
 	else {
-		if constexpr (print) {
-			auto word = safe_mode ? "[*]COPIED " : "COPIED ";
+		if (state.print) {
+			auto word = state.check_mode ? "[*]COPIED " : "COPIED ";
 			qpl::set_console_color(qpl::color::light_green);
 			qpl::println(qpl::str_lspaced(word, 40), destination);
 			qpl::set_console_color_default();
 		}
-		if constexpr (!safe_mode) {
+		if (!state.check_mode) {
 			source.copy(destination);
 		}
 	}
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void clear_path(const qpl::filesys::path& path) {
+void clear_path(const qpl::filesys::path& path, const state& state) {
 	if (global::find_ignored_root(path)) {
 		if (print_ignore && global::find_ignored(path)) {
-			if constexpr (print) {
-				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+			if (state.print) {
+				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
 				qpl::println(qpl::str_lspaced(word, 40), path);
 			}
 		}
@@ -222,31 +227,29 @@ void clear_path(const qpl::filesys::path& path) {
 	}
 
 	if (!global::find_checked(path.ensured_directory_backslash())) {
-		if constexpr (print) {
-			auto word = safe_mode ? "[*]REMOVED " : "REMOVED ";
+		if (state.print) {
+			auto word = state.check_mode ? "[*]REMOVED " : "REMOVED ";
 			qpl::println(qpl::str_lspaced(word, 40), path);
 		}
-		if constexpr (!safe_mode) {
+		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
 		}
 	}
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void clear_paths(const qpl::filesys::path& path) {
+void clear_paths(const qpl::filesys::path& path, const state& state) {
 	if (path.is_directory()) {
 		auto paths = path.list_current_directory_tree_include_self();
 		for (auto& path : paths) {
-			clear_path<print, safe_mode, find_collisions>(path);
+			clear_path(path, state);
 		}
 	}
 	else {
-		clear_path<print, safe_mode, find_collisions>(path);
+		clear_path(path, state);
 	}
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void find_removables(const qpl::filesys::path& path, bool is_git) {
+void find_removables(const qpl::filesys::path& path, bool is_git, const state& state) {
 	auto paths = path.list_current_directory();
 	for (auto& path : paths) {
 		path.ensure_directory_backslash();
@@ -254,19 +257,18 @@ void find_removables(const qpl::filesys::path& path, bool is_git) {
 			continue;
 		}
 		if (can_touch(path, is_git)) {
-			clear_paths<print, safe_mode, find_collisions>(path);
+			clear_paths(path, state);
 		}
 		else {
-			if constexpr (print && print_ignore) {
-				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+			if (state.print && print_ignore) {
+				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
 				qpl::println(qpl::str_lspaced(word, 40), path);
 			}
 		}
 	}
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void move(const qpl::filesys::path& path, bool pull_from_git) {
+void move(const qpl::filesys::path& path, const state& state) {
 	if (!path.exists()) {
 		qpl::println("MOVE : ", path, " doesn't exist.");
 		return;
@@ -276,12 +278,13 @@ void move(const qpl::filesys::path& path, bool pull_from_git) {
 		return;
 	}
 
-	bool is_target_git = !pull_from_git;
+	bool target_is_git = !state.pull;
+	bool target_is_work = state.pull;
 	auto branch = path.branch_size() - 1;
 	std::string target_branch_name;
 
 	qpl::filesys::path target_path;
-	if (pull_from_git) {
+	if (state.pull) {
 		target_branch_name = path.get_directory_name();
 		target_path = path.ensured_directory_backslash().with_branch(branch, "git");
 	}
@@ -293,35 +296,34 @@ void move(const qpl::filesys::path& path, bool pull_from_git) {
 
 	auto paths = target_path.list_current_directory();
 	for (auto& path : paths) {
-		if (can_touch(path, pull_from_git)) {
+		if (can_touch(path, target_is_work)) {
 			if (path.is_directory()) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
 					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-					check_overwrite<print, safe_mode, find_collisions>(path, destination);
+					check_overwrite(path, destination, state);
 				}
 			}
 			else {
 				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
-				check_overwrite<print, safe_mode, find_collisions>(path, destination);
+				check_overwrite(path, destination, state);
 			}
 		}
 		else {
-			if constexpr (print && print_ignore) {
-				auto word = safe_mode ? "[*]IGNORED " : "IGNORED ";
+			if (state.print && print_ignore) {
+				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
 				qpl::println(qpl::str_lspaced(word, 40), path);
 			}
 		}
 	}
 
 	auto git_path = path.ensured_directory_backslash().with_branch(branch, target_branch_name);
-	find_removables<print, safe_mode, find_collisions>(git_path, is_target_git);
+	find_removables(git_path, target_is_git, state);
 }
 
-template<bool print, bool safe_mode>
-void git(const qpl::filesys::path& path, bool pull) {
+void git(const qpl::filesys::path& path, const state& state) {
 
-	if constexpr (safe_mode) {
+	if (state.check_mode) {
 		return;
 	}
 
@@ -341,7 +343,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	auto same_dir = qpl::filesys::get_current_location().string().front() == git_path.string().front();
 	auto set_directory = qpl::to_string(same_dir ? "cd " : "cd /D ", git_path);
-	
+
 	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
 
 	auto output_file = home.appended("output.txt");
@@ -350,7 +352,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 	qpl::filesys::path git_status = home.appended("git_status.bat");
 	std::string git_status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
 
-	if (pull) {
+	if (state.pull) {
 		status_batch = home.appended("git_pull_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
@@ -376,7 +378,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 	}
 
 	bool clean_tree = false;
-	if (pull) {
+	if (state.pull) {
 		if (1 < lines.size()) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
@@ -390,7 +392,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 
 	if (clean_tree) {
 		qpl::set_console_color(qpl::color::aqua);
-		if (pull) {
+		if (state.pull) {
 			qpl::println("git status : branch is up-to-date.");
 		}
 		else {
@@ -399,7 +401,7 @@ void git(const qpl::filesys::path& path, bool pull) {
 		qpl::set_console_color_default();
 	}
 	else {
-		if (!pull) {
+		if (!state.pull) {
 			qpl::filesys::create_file(git_status, git_status_data);
 			std::system(git_status.c_str());
 			qpl::filesys::remove(git_status);
@@ -413,12 +415,16 @@ void git(const qpl::filesys::path& path, bool pull) {
 	output_file.remove();
 }
 
-template<bool print, bool safe_mode, bool find_collisions>
-void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
+void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 
 		auto args = qpl::split_string_whitespace(lines[i]);
+
 		if (args.empty()) {
+			continue;
+		}
+		if (args.size() == 1u) {
+			qpl::println("\"", args.front(), "\" no command detected, ignored.");
 			continue;
 		}
 		auto path = args.back();
@@ -427,7 +433,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			continue;
 		}
 
-		if constexpr (print) {
+		if (state.print) {
 			qpl::println();
 			qpl::println_repeat("- ", 40);
 			qpl::println();
@@ -435,14 +441,14 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 
-		if (global::pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
+		if (state.pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
 			std::swap(args[0], args[1]);
 		}
-		else if (!global::pull && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
+		else if (!state.pull && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
 			std::swap(args[0], args[1]);
 		}
 
-		if constexpr (print) {
+		if (state.print) {
 			for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 				qpl::print(args[i], ' ');
 			}
@@ -453,19 +459,19 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 			const auto& command = args[i];
 			if (command == "MOVE") {
 				qpl::small_clock clock;
-				move<print, safe_mode, find_collisions>(dir_path, global::pull);
+				move(dir_path, state);
 				time_sum += clock.elapsed();
 			}
 			else if (command == "GIT") {
 				qpl::small_clock clock;
-				git<print, safe_mode>(dir_path, global::pull);
+				git(dir_path, state);
 				time_sum += clock.elapsed();
 			}
 			else if (command == "IGNORE") {
 				global::ignore.insert(dir_path);
 			}
 			else {
-				if constexpr (print) {
+				if (state.print) {
 					qpl::println("unkown command \"", command, "\" ignored.");
 				}
 			}
@@ -473,8 +479,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum) {
 	}
 }
 
-template<bool safe_mode>
-bool confirm_collisions() {
+bool confirm_collisions(const state& state) {
 	auto size = global::date_changed_overwrites.size();
 	if (size) {
 		qpl::println();
@@ -489,12 +494,18 @@ bool confirm_collisions() {
 	size = global::possible_recent_overwrites.size();
 	if (size) {
 		qpl::println();
-		qpl::println("WARNING: there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version.");
+		if (!state.check_mode) {
+			qpl::print("WARNING: ");
+		}
+		qpl::println("there ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "that would overwrite a more recent version.");
 		qpl::println();
 		for (auto& i : global::possible_recent_overwrites) {
 			qpl::println(i);
 		}
 
+		if (state.check_mode) {
+			return true;
+		}
 		while (true) {
 			qpl::println();
 			qpl::println("Are you SURE you want to overwrite these files? (y/n)");
@@ -517,39 +528,150 @@ bool confirm_collisions() {
 	return true;
 }
 
-void determine_pull_or_push() {
+void determine_pull_or_push(state& state) {
 	while (true) {
 		qpl::print("PULL changes or PUSH changes > ");
 		auto input = qpl::get_input();
-		if (qpl::string_equals_ignore_case(input, "pull")) {
-			global::pull = true;
+
+		auto split = qpl::split_string_whitespace(input);
+		if (split.empty()) {
+			continue;
+		}
+
+		state.check_mode = false;
+		std::string argument = split.front();
+		for (qpl::size i = 0u; i < split.size(); ++i) {
+			if (qpl::string_equals_ignore_case(split[i], "check")) {
+				state.check_mode = true;
+				if (i < split.size() - 1) {
+					argument = split[i + 1];
+				}
+			}
+		}
+
+		if (qpl::string_equals_ignore_case(argument, "pull")) {
+			state.pull = true;
 			return;
 		}
-		else if (qpl::string_equals_ignore_case(input, "push")) {
-			global::pull = false;
+		else if (qpl::string_equals_ignore_case(argument, "push")) {
+			state.pull = false;
 			return;
 		}
 		else {
-			qpl::println("invalid command.\n");
+			qpl::println("\"", argument, "\" invalid command.\n");
 		}
 	}
 }
 
-void run() {
+std::vector<std::string> find_location() {
 	auto lines = qpl::split_string(qpl::read_file("paths.cfg"), '\n');
 
 	for (auto& line : lines) {
 		qpl::remove_multiples(line, '\r');
 	}
+
+	std::vector<std::vector<std::string>> locations;
+	std::vector<std::vector<std::string>> locations_command;
+	std::vector<std::string> location_names;
+	for (qpl::size i = 0u; i < lines.size(); ++i) {
+		if (lines[i].empty()) {
+			continue;
+		}
+		if (lines[i].back() == '{') {
+			locations.push_back({});
+			locations_command.push_back({});
+			location_names.push_back(qpl::split_string_words(lines[i]).front());
+		}
+		else if (lines[i].front() != '}') {
+			auto split = qpl::split_string_whitespace(lines[i]);
+			locations.back().push_back(split.back());
+			locations_command.back().push_back(lines[i]);
+		}
+	}
+
+	qpl::size best_index = 0u;
+	std::vector<std::string> location;
+	std::vector<std::string> result;
+	for (qpl::size i = 0u; i < locations.size(); ++i) {
+		bool found = true;
+		for (auto& p : locations[i]) {
+			if (!qpl::filesys::exists(p)) {
+				found = false;
+				break;
+			}
+		}
+		if (found) {
+			location = locations[i];
+			result = locations_command[i];
+			best_index = i;
+			break;
+		}
+	}
+	if (location.empty()) {
+		std::vector<std::pair<qpl::size, qpl::size>> counts(locations.size());
+
+		for (qpl::size i = 0u; i < locations.size(); ++i) {
+			counts[i].first = i;
+			counts[i].second = 0u;
+			for (auto& p : locations[i]) {
+				if (qpl::filesys::exists(p)) {
+					++counts[i].second;
+				}
+			}
+		}
+
+		qpl::sort(counts, [](auto a, auto b) {
+			return a.second > b.second;
+			});
+
+		best_index = counts.front().first;
+		qpl::println("paths.cfg : couldn't find the right location.\nBest match is location \"", location_names[best_index], "\": ");
+		for (auto& i : locations[best_index]) {
+			if (qpl::filesys::exists(i)) {
+				qpl::set_console_color(qpl::foreground::light_green);
+				qpl::print("FOUND     ");
+			}
+			else {
+				qpl::set_console_color(qpl::foreground::light_red);
+				qpl::print("NOT FOUND ");
+			}
+			qpl::set_console_color_default();
+			qpl::println(" -- ", i, " ]");
+		}
+		qpl::system_pause();
+	}
+	else {
+		qpl::println("location = \"", location_names[best_index], "\"");
+	}
+
+	return result;
+}
+
+void run() {
+
+	auto location = find_location();
+	if (location.empty()) {
+		return;
+	}
+
 	while (true) {
-		determine_pull_or_push();
+		state state;
+		state.print = false;
+		state.find_collisions = true;
+
+		determine_pull_or_push(state);
+		auto check_mode = state.check_mode;
+		state.check_mode = true;
 
 		qpl::time time_sum = 0u;
-		constexpr bool safe_mode = false;
 
-		execute<false, true, true>(lines, time_sum);
-		if (confirm_collisions<safe_mode>()) {
-			execute<true, safe_mode, false>(lines, time_sum);
+		execute(location, time_sum, state);
+		if (confirm_collisions(state)) {
+
+			state.check_mode = check_mode;
+			state.print = true;
+			state.find_collisions = false;
+			execute(location, time_sum, state);
 		}
 
 		qpl::println();

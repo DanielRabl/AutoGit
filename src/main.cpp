@@ -7,12 +7,18 @@ enum class action {
 	status,
 	none
 };
+
+enum class location {
+	local,
+	git,
+	both
+};
 struct state {
 	bool check_mode = true;
 	bool print = true;
 	bool find_collisions = true;
 	action action = action::none;
-	bool local = false;
+	location location = location::both;
 };
 
 
@@ -449,11 +455,30 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
 
-		if (state.action == action::pull && args.size() == 3u && args[0] == "MOVE" && args[1] == "GIT") {
-			std::swap(args[0], args[1]);
+		auto get_time_score = [](std::string s) {
+			if (s == "EXE") {
+				return 0u;
+			}
+			else if (s == "MOVE") {
+				return 1u;
+			}
+			else if (s == "GIT") {
+				return 2u;
+			}
+			else {
+				return 3u;
+			}
+		};
+
+		if (state.action == action::pull) {
+			std::sort(args.begin(), args.end() - 1, [&](auto a, auto b) {
+				return get_time_score(a) > get_time_score(b);
+			});
 		}
-		else if (state.action == action::push && args.size() == 3u && args[0] == "GIT" && args[1] == "MOVE") {
-			std::swap(args[0], args[1]);
+		else if (state.action == action::push) {
+			std::sort(args.begin(), args.end() - 1, [&](auto a, auto b) {
+				return get_time_score(a) < get_time_score(b);
+			});
 		}
 
 		if (state.print) {
@@ -546,18 +571,19 @@ void determine_pull_or_push(state& state) {
 			continue;
 		}
 
+		bool abort = false;
 		state.check_mode = false;
-		state.local = false;
+		state.location = location::both;
 		state.action = action::none;
 		for (auto& arg : split) {
 			if (qpl::string_equals_ignore_case(arg, "check")) {
 				state.check_mode = true;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "local")) {
-				state.local = true;
+				state.location = location::local;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "git")) {
-				state.local = false;
+				state.location = location::git;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "push")) {
 				state.action = action::push;
@@ -565,6 +591,13 @@ void determine_pull_or_push(state& state) {
 			else if (qpl::string_equals_ignore_case(arg, "pull")) {
 				state.action = action::pull;
 			}
+			else {
+				qpl::println("\"", arg, "\" invalid argument.\n");
+				abort = true;
+			}
+		}
+		if (abort) {
+			continue;
 		}
 		if (state.action == action::none) {
 			qpl::println("\"", split, "\" invalid arguments.\n");

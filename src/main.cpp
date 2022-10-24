@@ -133,12 +133,9 @@ void execute_batch(const std::string& path, const std::string& data) {
 
 void color_print(std::string string, qpl::cc color, bool use_color) {
 	if (use_color) {
-		qpl::set_console_color(color);
+		qpl::print(color);
 	}
 	qpl::println(string);
-	if (use_color) {
-		qpl::set_console_color_default();
-	}
 }
 
 void perform_actions(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
@@ -362,9 +359,10 @@ void git(const qpl::filesys::path& path, const state& state) {
 	}
 
 	qpl::filesys::path status_batch;
-	std::string status_data;
-
 	qpl::filesys::path exec_batch;
+
+	std::string status_data;
+	std::string status_display_data;
 	std::string exec_data;
 
 
@@ -374,18 +372,18 @@ void git(const qpl::filesys::path& path, const state& state) {
 	auto home = qpl::filesys::get_current_location().ensured_directory_backslash();
 
 	auto output_file = home.appended("output.txt");
-	if (!state.status) {
-		output_file.create();
-	}
+	output_file.create();
 
 	if (state.status) {
 		if (state.action == action::pull || state.action == action::none) {
 			status_batch = home.appended("git_status.bat");
-			status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git fetch && git status -uno");
+			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno");
+			status_data = qpl::to_string(status_display_data, " > ", output_file);
 		}
 		else if (state.action == action::push) {
 			status_batch = home.appended("git_status.bat");
-			status_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
+			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
+			status_data = qpl::to_string(status_display_data, " > ", output_file);
 		}
 	}
 	else if (state.action == action::pull) {
@@ -397,7 +395,8 @@ void git(const qpl::filesys::path& path, const state& state) {
 	}
 	else if (state.action == action::push) {
 		status_batch = home.appended("git_push_status.bat");
-		status_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status > ", output_file);
+		status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
+		status_data = qpl::to_string(status_display_data, " > ", output_file);
 
 		exec_batch = home.appended("git_push.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
@@ -405,46 +404,43 @@ void git(const qpl::filesys::path& path, const state& state) {
 
 	execute_batch(status_batch, status_data);
 
-	if (!state.status) {
-		auto lines = qpl::split_string(output_file.read(), '\n');
-		if (lines.empty()) {
-			qpl::println("error : no output from git status.");
-			return;
-		}
+	auto lines = qpl::split_string(output_file.read(), '\n');
+	if (lines.empty()) {
+		qpl::println("error : no output from git status.");
+		output_file.remove();
+		return;
+	}
 
-		bool clean_tree = false;
+	bool clean_tree = false;
+	if (state.action == action::pull) {
+		if (1 < lines.size()) {
+			std::string search = "Your branch is up to date";
+			auto start = lines[1].substr(0u, search.length());
+			clean_tree = qpl::string_equals_ignore_case(start, search);
+		}
+	}
+	else if (state.action == action::push) {
+		std::string search = "nothing to commit, working tree clean";
+		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
+	}
+
+	if (clean_tree) {
 		if (state.action == action::pull) {
-			if (1 < lines.size()) {
-				std::string search = "Your branch is up to date";
-				auto start = lines[1].substr(0u, search.length());
-				clean_tree = qpl::string_equals_ignore_case(start, search);
-			}
-		}
-		else if (state.action == action::push) {
-			std::string search = "nothing to commit, working tree clean";
-			clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
-		}
-
-		if (clean_tree) {
-			qpl::set_console_color(qpl::color::aqua);
-			if (state.action == action::pull) {
-				qpl::println("git status : branch is up-to-date.");
-			}
-			else {
-				qpl::println("git status : nothing new to commit.");
-			}
-			qpl::set_console_color_default();
+			qpl::println("git [PULL] status --", qpl::color::light_green, "nothing new to fetch.");
 		}
 		else {
-			if (state.action == action::push) {
-				auto batch = home.appended("git_push_status.bat");
-				auto data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git status");
-				execute_batch(batch, data);
-			}
+			qpl::println("git [PUSH] status --", qpl::color::light_green, "nothing new to commit.");
+		}
+	}
+	else {
+		if (!status_display_data.empty()) {
+			execute_batch(status_batch, status_display_data);
+		}
+		if (!exec_data.empty()) {
 			execute_batch(exec_batch, exec_data);
 		}
-		output_file.remove();
 	}
+	output_file.remove();
 }
 
 void execute(const std::vector<std::string> lines, qpl::time& time_sum, const state& state) {
@@ -466,9 +462,7 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 		}
 
 		if (state.print) {
-			qpl::println();
-			qpl::println_repeat("- ", 40);
-			qpl::println();
+			qpl::println_repeat("\n", 2);
 		}
 
 		auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
@@ -502,19 +496,20 @@ void execute(const std::vector<std::string> lines, qpl::time& time_sum, const st
 		if (state.print) {
 			for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 				const auto& command = args[i];
+
+				qpl::color color = qpl::color::white;
 				if (command == "MOVE" && state.location == location::git) {
-					qpl::set_console_color(qpl::foreground::gray);
+					color = qpl::color::gray;
 				}
 				else if (command == "GIT" && state.location == location::local) {
-					qpl::set_console_color(qpl::foreground::gray);
+					color = qpl::color::gray;
 				}
 				else {
-					qpl::set_console_color(qpl::foreground::bright_white);
+					color = qpl::color::bright_white;
 				}
-				qpl::print(args[i], ' ');
-				qpl::set_console_color_default();
+				qpl::print(color, args[i], ' ');
 			}
-			qpl::println(dir_path);
+			qpl::println(qpl::color::aqua, dir_path);
 		}
 
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
@@ -758,19 +753,25 @@ void run() {
 			bool status_pull = (state.action == action::pull) || (state.action == action::none);
 
 			auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
-			if (status_push) {
-				qpl::println();
-				auto str = qpl::to_string("STATUS CHECK - ", location_string, " PUSH");
-				color_print(str, qpl::foreground::light_blue, true);
 
+			auto print = [&](std::string command) {
+				qpl::println();
+				color_print(qpl::to_string_repeat("= ", 22), qpl::foreground::light_blue, true);
+				auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
+				color_print(str, qpl::foreground::light_blue, true);
+				color_print(qpl::to_string_repeat("= ", 22), qpl::foreground::light_blue, true);
+			};
+
+			if (status_push) {
+				print("PUSH");
 				state.action = action::push;
 				execute(location, time_sum, state);
 			}
 			if (status_pull) {
-				qpl::println();
-				auto str = qpl::to_string("STATUS CHECK - ", location_string, " PULL");
-				color_print(str, qpl::foreground::light_blue, true);
-
+				if (status_push && state.print) {
+					qpl::println_repeat("\n", 2);
+				}
+				print("PULL");
 				state.action = action::pull;
 				execute(location, time_sum, state);
 
@@ -796,11 +797,11 @@ void run() {
 		}
 		
 		qpl::println();
-		qpl::println_repeat("- ", 40);
+		qpl::println_repeat("- ", 20);
 		qpl::println();
 		qpl::println("TOTAL : ", time_sum.string_until_ms());
 		qpl::println();
-		qpl::println_repeat("- ", 40);
+		qpl::println_repeat("- ", 20);
 		qpl::println_repeat("\n", 4);
 	}
 }

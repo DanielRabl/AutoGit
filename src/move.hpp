@@ -271,7 +271,7 @@ void move(const qpl::filesys::path& path, const state& state) {
 			qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories have changed.");
 		}
 		else {
-			qpl::println("move [", word, "] status >> ", qpl::color::light_green, "directories are synchronized.");
+			qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories are synchronized.");
 		}
 	}
 }

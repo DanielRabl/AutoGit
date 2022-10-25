@@ -301,7 +301,6 @@ std::vector<std::string> find_location() {
 }
 
 void run() {
-
 	auto location = find_location();
 	if (location.empty()) {
 		return;

@@ -13,6 +13,8 @@ namespace info {
 	std::vector<std::string> removes;
 	bool move_changes = false;
 
+	constexpr auto print_space = 40;
+
 	void total_reset() {
 		total_change_sum = 0u;
 	}

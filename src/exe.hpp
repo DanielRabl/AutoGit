@@ -3,12 +3,8 @@
 #include <qpl/qpl.hpp>
 #include "info.hpp"
 
-void exe(const qpl::filesys::path& path, const state& state) {
-	if (state.action != action::push) {
-		return;
-	}
+std::optional<qpl::filesys::path> get_most_recent_exe(const qpl::filesys::path& path) {
 	auto parent = path.get_parent_branch();
-	auto target_name = parent.get_directory_name();
 	auto project_name = path.get_directory_name();
 
 	std::vector<std::pair<qpl::size, qpl::filesys::path>> executables;
@@ -24,16 +20,32 @@ void exe(const qpl::filesys::path& path, const state& state) {
 	check_search(parent.appended(qpl::to_string(project_name, "/Debug/", project_name, ".exe")));
 
 	if (executables.empty()) {
-		return;
+		return std::nullopt;
 	}
 
 	qpl::sort(executables, [](auto a, auto b) {
 		return a.first < b.first;
-	});
-	auto destination = parent.appended(qpl::to_string(project_name, '/', target_name, ".exe"));
-	auto best = executables.back().second;
+		});
+	return executables.back().second;
+}
 
-	if (destination.exists() && best.file_content_equals(destination)) {
+void exe(const qpl::filesys::path& path, const state& state) {
+	if (state.action != action::push) {
+		return;
+	}
+	auto parent = path.get_parent_branch();
+	auto target_name = parent.get_directory_name();
+	auto project_name = path.get_directory_name();
+
+	auto optional_latest = get_most_recent_exe(path);
+	if (!optional_latest.has_value()) {
+		return;
+	}
+	auto target_exe = optional_latest.value();
+
+	auto destination = parent.appended(qpl::to_string(project_name, '/', target_name, ".exe"));
+
+	if (destination.exists() && target_exe.file_content_equals(destination)) {
 		return;
 	}
 
@@ -45,10 +57,10 @@ void exe(const qpl::filesys::path& path, const state& state) {
 		else {
 			word = state.check_mode ? "[*]NEW .exe" : "ADDED .exe";
 		}
-		qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
+		qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
 	}
 
 	if (!state.check_mode) {
-		best.copy_overwrite(destination);
+		target_exe.copy_overwrite(destination);
 	}
 }

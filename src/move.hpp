@@ -5,12 +5,34 @@
 #include "info.hpp"
 #include "access.hpp"
 
+std::string time_diff_string(std::filesystem::file_time_type time1, std::filesystem::file_time_type time2, bool show_time_stamp) {
+
+	auto ns1 = std::chrono::duration_cast<std::chrono::nanoseconds>(time1.time_since_epoch()).count();
+	auto ns2 = std::chrono::duration_cast<std::chrono::nanoseconds>(time2.time_since_epoch()).count();
+
+	bool negative = ns2 < ns1;
+	if (negative) {
+		std::swap(ns1, ns2);
+		std::swap(time1, time2);
+	}
+
+	auto diff = qpl::time(ns2 - ns1).string_short("");
+	auto time_stamp = qpl::get_time_string(time2, "%Y-%m-%d %H-%M-%S");
+	auto diff_str = qpl::to_string("( ", negative ? '-' : '+', ' ', diff, " )");
+	if (show_time_stamp) {
+		return qpl::to_string(time_stamp, ' ', diff_str);
+	}
+	else {
+		return diff_str;
+	}
+}
+
 void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& destination, const state& state) {
 	if (info::find_ignored_root(source.ensured_directory_backslash())) {
 		if (print_ignore && info::find_ignored(source.ensured_directory_backslash())) {
 			if (state.print) {
 				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), source);
+				qpl::println(qpl::str_lspaced(word, info::print_space), source);
 			}
 		}
 		info::checked.insert(destination);
@@ -22,7 +44,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 			info::move_changes = true;
 			if (state.print) {
 				auto word = state.check_mode ? "[*]NEW " : "NEW DIRECTORY ";
-				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
+				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
 			}
 			if (!state.check_mode) {
 				destination.ensure_branches_exist();
@@ -34,30 +56,30 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 	info::checked.insert(destination);
 
 	if (destination.exists()) {
-		//auto equals = source.file_equals_no_read(destination);
-		auto equals = source.file_content_equals(destination);
+
+		bool equals;
+		if (state.quick_mode) {
+			equals = source.file_equals_no_read(destination);
+		}
+		else {
+			//equals = source.file_content_equals(destination);
+			equals = source.file_equals(destination);
+		}
 		if (!equals) {
 			auto fs1 = source.file_size();
 			auto fs2 = destination.file_size();
 
-			if (state.find_collisions) {
-				auto time1 = source.last_write_time();
-				auto time2 = destination.last_write_time();
+			auto time1 = source.last_write_time();
+			auto time2 = destination.last_write_time();
 
+			if (state.find_collisions) {
 				auto overwrites_newer = time2.time_since_epoch().count() > time1.time_since_epoch().count();
 
 				bool different_time_but_same_data = overwrites_newer && source.file_content_equals(destination);
 
 				if (overwrites_newer) {
 
-					auto ns1 = std::chrono::duration_cast<std::chrono::nanoseconds>(time1.time_since_epoch()).count();
-					auto ns2 = std::chrono::duration_cast<std::chrono::nanoseconds>(time2.time_since_epoch()).count();
-
-					auto diff = qpl::time(ns2 - ns1).string_until_sec("");
-
-					auto time_stamp = qpl::get_time_string(time2, "%Y-%m-%d %H-%M-%S");
-
-					auto str = qpl::to_string(time_stamp, " ", qpl::str_spaced(qpl::to_string("( + ", diff, ")"), 30), " --- ", destination);
+					auto str = qpl::to_string(time_diff_string(time1, time2, true), " --- ", destination);
 
 					if (different_time_but_same_data) {
 						info::time_overwrites.push_back(str);
@@ -75,7 +97,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
 					auto word = state.check_mode ? "[*]MODIFY" : "MODIFIED";
-					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " [", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), "] "), 40));
+					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " (", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), " ) "), info::print_space));
 					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 				}
 
@@ -83,11 +105,25 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 					source.copy_overwrite(destination);
 				}
 			}
+			else if (time1 != time2) {
+				info::move_changes = true;
+				if (state.print) {
+					auto diff_str = time_diff_string(time1, time2, false);
+
+					auto word = state.check_mode ? "[*]MODIFY TIME" : "MODIFIED TIME";
+					auto str = qpl::to_string(word, ' ', diff_str);
+					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(str, info::print_space), destination);
+				}
+				if (!state.check_mode) {
+					source.copy_overwrite(destination);
+				}
+			}
 			else {
 				info::move_changes = true;
 				if (state.print) {
+
 					auto word = state.check_mode ? "[*]MODIFY [BYTES CHANGED] " : "MODIFIED [BYTES CHANGED] ";
-					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
+					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
 				}
 				if (!state.check_mode) {
 					source.copy_overwrite(destination);
@@ -98,7 +134,7 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 	else {
 		if (state.print) {
 			auto word = state.check_mode ? "[*]NEW " : "ADDED ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, 40), destination);
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
 		}
 		if (!state.check_mode) {
 			source.copy(destination);
@@ -111,7 +147,7 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 		if (print_ignore && info::find_ignored(path)) {
 			if (state.print) {
 				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
+				qpl::println(qpl::str_lspaced(word, info::print_space), path);
 			}
 		}
 		return;
@@ -128,7 +164,7 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 		if (state.print) {
 			info::move_changes = true;
 			auto word = state.check_mode ? "[*]REMOVE " : "REMOVED ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, qpl::str_lspaced(word, 40), path);
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, qpl::str_lspaced(word, info::print_space), path);
 		}
 		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
@@ -161,7 +197,7 @@ void find_removables(const qpl::filesys::path& path, const state& state) {
 		else {
 			if (state.print && print_ignore) {
 				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
+				qpl::println(qpl::str_lspaced(word, info::print_space), path);
 			}
 		}
 	}
@@ -174,6 +210,10 @@ void move(const qpl::filesys::path& path, const state& state) {
 	}
 	if (!is_valid_working_directory(path)) {
 		qpl::println("MOVE : ", path, " is not a valid working directory with a solution file.");
+		return;
+	}
+	if (!has_git_directory(path)) {
+		qpl::println("MOVE : ", path, " couldn't find a git directory.");
 		return;
 	}
 
@@ -212,7 +252,7 @@ void move(const qpl::filesys::path& path, const state& state) {
 		else {
 			if (state.print && print_ignore) {
 				auto word = state.check_mode ? "[*]IGNORED " : "IGNORED ";
-				qpl::println(qpl::str_lspaced(word, 40), path);
+				qpl::println(qpl::str_lspaced(word, info::print_space), path);
 			}
 		}
 	}

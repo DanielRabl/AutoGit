@@ -18,4 +18,5 @@ struct state {
 	action action = action::none;
 	::location location = location::both;
 	bool status = false;
+	bool quick_mode = false;
 };

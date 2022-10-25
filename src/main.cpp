@@ -31,18 +31,19 @@ void execute(const std::string& line, qpl::time& time_sum, const state& state) {
 	}
 	else if (args.size() == 2u && args[0] == "SOLUTIONS") {
 		auto list = dir_path.ensured_directory_backslash().list_current_directory();
-
-		for (auto& p : list) {
-			execute(qpl::to_string("MOVE GIT EXE ", p), time_sum, state);
+		for (auto& path : list) {
+			auto valid = get_solution_directory_if_valid(path).has_value();
+			if (valid) {
+				execute(qpl::to_string("MOVE GIT EXE ", path), time_sum, state);
+			}
 		}
 		return;
 	}
 
 	auto solution_optional = get_solution_directory_if_valid(dir_path);
-	if (!solution_optional.has_value()) {
-		return;
+	if (solution_optional.has_value()) {
+		dir_path = solution_optional.value();
 	}
-	dir_path = solution_optional.value();
 
 	auto get_time_priority = [](std::string s) {
 		if (s == "EXE") {

@@ -56,13 +56,11 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 	info::checked.insert(destination);
 
 	if (destination.exists()) {
-
 		bool equals;
 		if (state.quick_mode) {
 			equals = source.file_equals_no_read(destination);
 		}
 		else {
-			//equals = source.file_content_equals(destination);
 			equals = source.file_equals(destination);
 		}
 		if (!equals) {
@@ -240,12 +238,19 @@ void move(const qpl::filesys::path& path, const state& state) {
 			if (path.is_directory()) {
 				auto dir_paths = path.list_current_directory_tree_include_self();
 				for (auto& path : dir_paths) {
-					auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
+
+					auto destination = path.with_branch(branch, target_branch_name);
+					if (path.is_directory()) {
+						destination.ensure_backslash();
+					}
 					perform_move(path, destination, state);
 				}
 			}
 			else {
 				auto destination = path.with_branch(branch, target_branch_name).ensured_directory_backslash();
+				if (path.is_directory()) {
+					destination.ensure_backslash();
+				}
 				perform_move(path, destination, state);
 			}
 		}

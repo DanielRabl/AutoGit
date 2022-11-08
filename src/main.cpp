@@ -194,6 +194,14 @@ void run() {
 		state state;
 		input_state(state);
 
+		if (state.action != action::both && !state.status && !state.update) {
+			state.find_collisions = true;
+			state.print = false;
+			execute(location, state);
+			if (!confirm_collisions(state)) {
+				continue;
+			}
+		}
 		execute(location, state);
 
 		qpl::println_repeat('\n', 2);

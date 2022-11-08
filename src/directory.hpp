@@ -134,12 +134,12 @@ struct directory {
 		auto word = state.action == action::pull ? "PULL" : "PUSH";
 		auto status_word = state.status ? "status" : "update status";
 		if (git_print) {
-			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(qpl::color::aqua, "------", " git [", cw, word, "] ", status_word, " ");
+			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
+			qpl::print(cw, "------", " git [", cw, word, "] ", status_word, " ");
 		}
 		if (move_print) {
-			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(qpl::color::aqua, "-----", " move [", cw, word, "] ", status_word, " ");
+			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
+			qpl::print(cw, "-----", " move [", cw, word, "] ", status_word, " ");
 		}
 
 		info::command_reset();
@@ -284,7 +284,7 @@ struct directory {
 				qpl::println("can safely ", qpl::color::aqua, "push", '.');
 			}
 			else if (this->status_can_pull()) {
-				qpl::println("can safely ", qpl::color::aqua, "pull", '.');
+				qpl::println("can safely ", qpl::color::light_green, "pull", '.');
 			}
 			else if (this->status_has_conflicts()) {
 				qpl::println('\n', qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());

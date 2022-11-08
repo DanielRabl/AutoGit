@@ -39,7 +39,7 @@ void print_collisions(const state& state) {
 	}
 }
 
-bool verify_collisions(const state& state) {
+bool confirm_collisions(const state& state) {
 	if (info::total_change_sum && !state.status) {
 		while (true) {
 			qpl::println();

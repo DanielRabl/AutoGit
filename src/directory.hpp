@@ -182,7 +182,7 @@ struct directory {
 
 		if (state.only_collisions) {
 			if (info::any_collisions()) {
-				qpl::println("Collisions", qpl::color::aqua, this->path);
+				qpl::println("COLLISIONS ", qpl::color::aqua, this->path);
 				print_collisions(state);
 			}
 		}

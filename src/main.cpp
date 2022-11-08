@@ -266,14 +266,13 @@ void run() {
 		//		execute(location, time_sum, state);
 		//	}
 		//}
-		
-		qpl::println();
-		qpl::println();
+
+		qpl::println_repeat('\n', 2);
 		auto str = qpl::to_string("TOTAL : ", timer.elapsed().string_short());
 		qpl::println_repeat("~", str.length());
 		qpl::println(str);
 		qpl::println_repeat("~", str.length());
-		qpl::println_repeat("\n", 3);
+		qpl::println_repeat('\n', 2);
 	}
 }
 

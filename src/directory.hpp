@@ -154,17 +154,17 @@ struct directory {
 		if (git_print) {
 			auto word = state.action == action::pull ? "fetch" : "commit";
 			if (!info::git_changes) {
-				qpl::println(qpl::color::light_yellow, qpl::to_string("nothing new to ", word, "."));
+				qpl::println(qpl::color::gray, qpl::to_string("nothing new to ", word, "."));
 			}
-			else if (state.update && !state.status) {
+			else if (state.update && !info::any_output) {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
 		if (move_print) {
 			if (!info::move_changes) {
-				qpl::println(qpl::color::light_yellow, "directories are synchronized.");
+				qpl::println(qpl::color::gray, "directories are synchronized.");
 			}
-			else if (state.update && !state.status) {
+			else if (state.update && !info::any_output) {
 				qpl::println(qpl::color::light_yellow, "directories are changed.");
 			}
 		}
@@ -315,10 +315,10 @@ struct directory {
 			}
 
 			if (this->status_can_push()) {
-				qpl::println("result: should ", info::special_color, "push", '.');
+				qpl::println("result: should ", qpl::color::aqua, "push", '.');
 			}
 			else if (this->status_can_pull()) {
-				qpl::println("result: should ", info::special_color, "pull", '.');
+				qpl::println("result: should ", qpl::color::aqua, "pull", '.');
 			}
 			else if (this->status_has_conflicts()) {
 				qpl::println('\n', qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());

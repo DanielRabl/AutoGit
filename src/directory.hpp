@@ -64,24 +64,32 @@ struct directory {
 		return {};
 	}
 
-	std::vector<command> get_commands() const {
-		if (this->is_git()) {
+	std::vector<command> get_unsorted_commands(const state& state) const {
+		if (this->is_git() && state.location == location::git) {
 			return { command::git };
 		}
-		else if (this->is_solution()) {
-			return { command::move, command::git };
+		if (this->is_solution()) {
+			if (state.location == location::local) {
+				return { command::move };
+			}
+			else if (state.location == location::git) {
+				return { command::git };
+			}
+			else if (state.location == location::both) {
+				return { command::move, command::git };
+			}
 		}
 		return {};
 	}
-	std::vector<command> get_pull_commands() const {
-		auto commands = this->get_commands();
+	std::vector<command> get_pull_commands(const state& state) const {
+		auto commands = this->get_unsorted_commands(state);
 		std::sort(commands.begin(), commands.end(), [&](auto a, auto b) {
 			return a < b;
 			});
 		return commands;
 	}
-	std::vector<command> get_push_commands() const {
-		auto commands = this->get_commands();
+	std::vector<command> get_push_commands(const state& state) const {
+		auto commands = this->get_unsorted_commands(state);
 		std::sort(commands.begin(), commands.end(), [&](auto a, auto b) {
 			return a > b;
 			});
@@ -89,10 +97,10 @@ struct directory {
 	}
 	std::vector<command> get_commands(const state& state) const {
 		if (state.action == action::push) {
-			return this->get_pull_commands();
+			return this->get_pull_commands(state);
 		}
 		else if (state.action == action::pull) {
-			return this->get_push_commands();
+			return this->get_push_commands(state);
 		}
 		return {};
 	}
@@ -217,29 +225,7 @@ struct directory {
 		}
 		return stream.str();
 	}
-
-	void print_commands(const state& state, const std::vector<command>& commands) {
-		if (!this->any_active_commands(state, commands)) {
-			return;
-		}
-		if (state.print) {
-			for (qpl::size i = 0u; i < commands.size(); ++i) {
-				auto active = this->is_command_active(state, commands[i]);
-				qpl::color color = active ? qpl::color::bright_white : qpl::color::gray;
-				qpl::print(color, command_string(commands[i]), ' ');
-			}
-			qpl::print(qpl::color::aqua, this->path);
-		}
-	}
-	void println_commands(const state& state, const std::vector<command>& commands) {
-		this->print_commands(state, commands);
-		qpl::println();
-	}
 	void execute(const state& state, const std::vector<command>& commands) {
-		if (!this->any_active_commands(state, commands)) {
-			return;
-		}
-
 		info::reset();
 		for (auto& command : commands) {
 			this->execute(state, command);
@@ -251,29 +237,6 @@ struct directory {
 		}
 	}
 
-	static bool is_command_active(const state& state, command command) {
-		if (command == command::move && state.location == location::git) {
-			return false;
-		}
-		else if (command == command::exe && (state.location == location::git || state.action == action::pull)) {
-			return false;
-		}
-		else if (command == command::git && state.location == location::local) {
-			return false;
-		}
-		else {
-			return true;
-		}
-	}
-	static bool any_active_commands(const state& state, const std::vector<command>& commands) {
-		for (auto command : commands) {
-			if (is_command_active(state, command)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	void execute(state state) {
 		if (this->empty()) {
 			return;
@@ -282,6 +245,9 @@ struct directory {
 		this->push_status.reset();
 
 		if (state.action == action::both && (state.status || state.update)) {
+			if (this->get_pull_commands(state).empty() && this->get_push_commands(state).empty()) {
+				return;
+			}
 
 			auto word = state.status ? "STATUS " : "UPDATE ";
 			qpl::println('\n', word, qpl::color::aqua, this->path);
@@ -347,12 +313,13 @@ struct directory {
 		}
 		else {
 			auto commands = this->get_commands(state);
-			this->println_commands(state, commands);
-			this->execute(state, commands);
-
-			if (state.print || state.find_collisions) {
-				print_collisions(state);
+			if (commands.empty()) {
+				return;
 			}
+
+			auto word = state.status ? "STATUS " : "UPDATE ";
+			qpl::println('\n', word, qpl::color::aqua, this->path);
+			this->execute(state, this->get_commands(state));
 		}
 
 	}

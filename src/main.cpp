@@ -196,63 +196,6 @@ void run() {
 
 		execute(location, state);
 
-		//if (state.status) {
-		//	state.print = true;
-		//	state.check_mode = true;
-		//	
-		//	bool status_push = (state.action == action::push) || (state.action == action::none);
-		//	bool status_pull = (state.action == action::pull) || (state.action == action::none);
-		//
-		//	auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
-		//
-		//	auto print = [&](std::string command) {
-		//		qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
-		//		auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
-		//		qpl::println(qpl::color::light_blue, str);
-		//		qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
-		//	};
-		//
-		//	if (status_push) {
-		//		qpl::println_repeat("\n", 2);
-		//		print("PUSH");
-		//		state.action = action::push;
-		//		execute(location, time_sum, state);
-		//
-		//		if (state.location != location::git) {
-		//			verify_collisions(state);
-		//		}
-		//	}
-		//	if (status_pull) {
-		//		if (status_push && state.print) {
-		//			qpl::println_repeat("\n", 2);
-		//		}
-		//		print("PULL");
-		//		info::total_reset();
-		//
-		//		state.action = action::pull;
-		//		execute(location, time_sum, state);
-		//
-		//		if (state.location != location::git) {
-		//			verify_collisions(state);
-		//		}
-		//	}
-		//}
-		//else {
-		//	state.print = false;
-		//	state.find_collisions = true;
-		//
-		//	auto check_mode = state.check_mode;
-		//	state.check_mode = true;
-		//
-		//	execute(location, time_sum, state);
-		//	if (verify_collisions(state)) {
-		//		state.check_mode = check_mode;
-		//		state.print = true;
-		//		state.find_collisions = false;
-		//		execute(location, time_sum, state);
-		//	}
-		//}
-
 		qpl::println_repeat('\n', 2);
 		auto str = qpl::to_string("TOTAL : ", timer.elapsed().string_short());
 		qpl::println_repeat("~", str.length());

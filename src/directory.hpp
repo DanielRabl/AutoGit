@@ -123,15 +123,15 @@ struct directory {
 		bool git_print = command == command::git;
 		bool move_print = command == command::move;
 
+		auto word = state.action == action::pull ? "PULL" : "PUSH";
+		auto status_word = state.status ? "status" : "update status";
 		if (git_print) {
-			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(info::special_color, "   ", "  git [", cw, word, "] status ");
+			qpl::print(qpl::color::aqua, "-----", "  git [", cw, word, "] ", status_word, " ");
 		}
 		if (move_print) {
-			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(info::special_color, "   ", " move [", cw, word, "] status ");
+			qpl::print(qpl::color::aqua, "-----", " move [", cw, word, "] ", status_word, " ");
 		}
 
 		info::command_reset();

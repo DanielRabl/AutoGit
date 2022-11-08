@@ -8,6 +8,43 @@
 #include "git.hpp"
 #include "move.hpp"
 #include "exe.hpp"
+#include "directory.hpp"
+
+void execute2(const std::string& line, qpl::time& time_sum, const state& state) {
+	auto args = qpl::split_string_whitespace(line);
+
+	if (args.empty()) {
+		return;
+	}
+	if (args.size() == 1u) {
+		qpl::println("\"", args.front(), "\" no command detected, ignored.");
+		return;
+	}
+	auto path = args.back();
+	auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
+
+	if (args.front().starts_with("//")) {
+		return;
+	}
+	if (args.size() == 2u && args[0] == "SOLUTION") {
+		execute2(qpl::to_string("MOVE GIT EXE ", args.back()), time_sum, state);
+		return;
+	}
+	else if (args.size() == 2u && args[0] == "SOLUTIONS") {
+		auto list = dir_path.ensured_directory_backslash().list_current_directory();
+		for (auto& path : list) {
+			auto valid = get_solution_directory_if_valid(path).has_value();
+			if (valid) {
+				execute2(qpl::to_string("MOVE GIT EXE ", path), time_sum, state);
+			}
+		}
+		return;
+	}
+
+	directory directory;
+	directory.set_path(path);
+	directory.execute(state);
+}
 
 void execute(const std::string& line, qpl::time& time_sum, const state& state) {
 	auto args = qpl::split_string_whitespace(line);
@@ -100,9 +137,6 @@ void execute(const std::string& line, qpl::time& time_sum, const state& state) {
 
 	if (state.print) {
 		qpl::println_repeat("\n", 2);
-	}
-
-	if (state.print) {
 		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
 			const auto& command = args[i];
 			qpl::color color = active_command(command) ? qpl::color::bright_white : qpl::color::gray;
@@ -158,7 +192,7 @@ void execute(const std::string& line, qpl::time& time_sum, const state& state) {
 
 void execute(const std::vector<std::string>& lines, qpl::time& time_sum, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
-		execute(lines[i], time_sum, state);
+		execute2(lines[i], time_sum, state);
 	}
 }
 
@@ -176,8 +210,9 @@ void input_state(state& state) {
 		state.check_mode = false;
 		state.status = false;
 		state.quick_mode = false;
+		state.update = false;
 		state.location = location::both;
-		state.action = action::none;
+		state.action = action::both;
 		for (auto& arg : split) {
 			if (qpl::string_equals_ignore_case(arg, "check")) {
 				state.check_mode = true;
@@ -200,6 +235,9 @@ void input_state(state& state) {
 			else if (qpl::string_equals_ignore_case(arg, "status")) {
 				state.status = true;
 			}
+			else if (qpl::string_equals_ignore_case(arg, "update")) {
+				state.update = true;
+			}
 			else {
 				qpl::println("\"", arg, "\" invalid argument.\n");
 				abort = true;
@@ -208,7 +246,7 @@ void input_state(state& state) {
 		if (abort) {
 			continue;
 		}
-		if (state.action == action::none && !state.status) {
+		if (state.action == action::both && !(state.status || state.update)) {
 			qpl::println("\"", split, "\" invalid arguments.\n");
 			continue;
 		}
@@ -314,62 +352,64 @@ void run() {
 		state state;
 		input_state(state);
 
-		if (state.status) {
-			state.print = true;
-			state.check_mode = true;
-			
-			bool status_push = (state.action == action::push) || (state.action == action::none);
-			bool status_pull = (state.action == action::pull) || (state.action == action::none);
+		execute(location, time_sum, state);
 
-			auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
-
-			auto print = [&](std::string command) {
-				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
-				auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
-				qpl::println(qpl::color::light_blue, str);
-				qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
-			};
-
-			if (status_push) {
-				qpl::println_repeat("\n", 2);
-				print("PUSH");
-				state.action = action::push;
-				execute(location, time_sum, state);
-
-				if (state.location != location::git) {
-					verify_collisions(state);
-				}
-			}
-			if (status_pull) {
-				if (status_push && state.print) {
-					qpl::println_repeat("\n", 2);
-				}
-				print("PULL");
-				info::total_reset();
-
-				state.action = action::pull;
-				execute(location, time_sum, state);
-
-				if (state.location != location::git) {
-					verify_collisions(state);
-				}
-			}
-		}
-		else {
-			state.print = false;
-			state.find_collisions = true;
-
-			auto check_mode = state.check_mode;
-			state.check_mode = true;
-
-			execute(location, time_sum, state);
-			if (verify_collisions(state)) {
-				state.check_mode = check_mode;
-				state.print = true;
-				state.find_collisions = false;
-				execute(location, time_sum, state);
-			}
-		}
+		//if (state.status) {
+		//	state.print = true;
+		//	state.check_mode = true;
+		//	
+		//	bool status_push = (state.action == action::push) || (state.action == action::none);
+		//	bool status_pull = (state.action == action::pull) || (state.action == action::none);
+		//
+		//	auto location_string = state.location == location::git ? "GIT" : state.location == location::local ? "LOCAL" : "GIT && LOCAL";
+		//
+		//	auto print = [&](std::string command) {
+		//		qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
+		//		auto str = qpl::to_string("\tSTATUS CHECK - ", location_string, ' ', command);
+		//		qpl::println(qpl::color::light_blue, str);
+		//		qpl::println(qpl::color::light_blue, qpl::to_string_repeat("= ", 25));
+		//	};
+		//
+		//	if (status_push) {
+		//		qpl::println_repeat("\n", 2);
+		//		print("PUSH");
+		//		state.action = action::push;
+		//		execute(location, time_sum, state);
+		//
+		//		if (state.location != location::git) {
+		//			verify_collisions(state);
+		//		}
+		//	}
+		//	if (status_pull) {
+		//		if (status_push && state.print) {
+		//			qpl::println_repeat("\n", 2);
+		//		}
+		//		print("PULL");
+		//		info::total_reset();
+		//
+		//		state.action = action::pull;
+		//		execute(location, time_sum, state);
+		//
+		//		if (state.location != location::git) {
+		//			verify_collisions(state);
+		//		}
+		//	}
+		//}
+		//else {
+		//	state.print = false;
+		//	state.find_collisions = true;
+		//
+		//	auto check_mode = state.check_mode;
+		//	state.check_mode = true;
+		//
+		//	execute(location, time_sum, state);
+		//	if (verify_collisions(state)) {
+		//		state.check_mode = check_mode;
+		//		state.print = true;
+		//		state.find_collisions = false;
+		//		execute(location, time_sum, state);
+		//	}
+		//}
 		
 		qpl::println();
 		qpl::println();

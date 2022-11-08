@@ -43,8 +43,9 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 		if (!destination.exists()) {
 			info::move_changes = true;
 			if (state.print) {
-				auto word = state.check_mode ? "[*]NEW " : "NEW DIRECTORY ";
-				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
+				auto word = state.check_mode ? "[*]NEW    " : "NEW DIR ";
+				auto str = qpl::str_lspaced(qpl::to_string(word, " + ", qpl::memory_size_string(source.file_size_recursive())), info::print_space);
+				qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 			}
 			if (!state.check_mode) {
 				destination.ensure_branches_exist();
@@ -94,8 +95,8 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 				info::move_changes = true;
 				auto diff = qpl::signed_cast(fs1) - qpl::signed_cast(fs2);
 				if (state.print) {
-					auto word = state.check_mode ? "[*]MODIFY" : "MODIFIED";
-					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, " (", diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff)), " ) "), info::print_space));
+					auto word = state.check_mode ? "[*]MODIFY " : "MODIFIED ";
+					auto str = qpl::to_string(qpl::str_lspaced(qpl::to_string(word, diff > 0 ? " + " : " - ", qpl::memory_size_string(qpl::abs(diff))), info::print_space));
 					qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 				}
 
@@ -130,9 +131,11 @@ void perform_move(const qpl::filesys::path& source, const qpl::filesys::path& de
 		}
 	}
 	else {
+		info::move_changes = true;
 		if (state.print) {
-			auto word = state.check_mode ? "[*]NEW " : "ADDED ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
+			auto word = state.check_mode ? "[*]NEW    " : "ADDED   ";
+			auto str = qpl::str_lspaced(qpl::to_string(word, " + ", qpl::memory_size_string(source.file_size_recursive())), info::print_space);
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, str, destination);
 		}
 		if (!state.check_mode) {
 			source.copy(destination);
@@ -162,7 +165,8 @@ void clear_path(const qpl::filesys::path& path, const state& state) {
 		if (state.print) {
 			info::move_changes = true;
 			auto word = state.check_mode ? "[*]REMOVE " : "REMOVED ";
-			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, qpl::str_lspaced(word, info::print_space), path);
+			auto str = qpl::str_lspaced(qpl::to_string(word, " - ", qpl::memory_size_string(path.file_size_recursive())), info::print_space);
+			qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_red, str, path);
 		}
 		if (!state.check_mode) {
 			qpl::filesys::remove(path.ensured_directory_backslash());
@@ -210,7 +214,7 @@ void move(const qpl::filesys::path& path, const state& state) {
 		qpl::println("MOVE : ", path, " is not a valid working directory with a solution file.");
 		return;
 	}
-	if (!has_git_directory(path)) {
+	if (!has_git_directory(path.get_parent_branch())) {
 		qpl::println("MOVE : ", path, " couldn't find a git directory.");
 		return;
 	}
@@ -267,10 +271,7 @@ void move(const qpl::filesys::path& path, const state& state) {
 
 	if (state.print) {
 		auto word = state.action == action::pull ? "PULL" : "PUSH";
-		if (info::move_changes) {
-			qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories have changed.");
-		}
-		else {
+		if (!info::move_changes) {
 			qpl::println("move [", word, "] status >> ", qpl::color::light_yellow, "directories are synchronized.");
 		}
 	}

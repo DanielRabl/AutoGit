@@ -12,9 +12,13 @@ namespace info {
 	std::vector<std::string> time_overwrites;
 	std::vector<std::string> removes;
 	bool move_changes = false;
+	bool git_changes = false;
 
 	constexpr auto print_space = 40;
 
+	bool any_collisions() {
+		return data_overwrites.size() || removes.size();
+	}
 	void total_reset() {
 		total_change_sum = 0u;
 	}

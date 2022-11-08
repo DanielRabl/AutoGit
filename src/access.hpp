@@ -68,6 +68,15 @@ bool can_touch(const qpl::filesys::path& path, bool push) {
 	}
 }
 
+bool is_git_directory(const qpl::filesys::path& path) {
+	auto list = path.list_current_directory();
+	for (auto& path : list) {
+		if (path.is_directory() && path.get_directory_name() == ".git") {
+			return true;
+		}
+	}
+	return false;
+}
 bool is_valid_working_directory(const qpl::filesys::path& path) {
 	auto list = path.list_current_directory();
 	auto project_name = path.get_directory_name();
@@ -81,18 +90,12 @@ bool is_valid_working_directory(const qpl::filesys::path& path) {
 	return false;
 }
 bool has_git_directory(const qpl::filesys::path& path) {
-	auto search = path.get_parent_branch();
+	auto search = path;
 	search.go_into("git/");
 	if (!search.exists()) {
 		return false;
 	}
-	auto list = search.list_current_directory();
-	for (auto& p : list) {
-		if (p.is_directory() && p.get_directory_name() == ".git") {
-			return true;
-		}
-	}
-	return false;
+	return is_git_directory(search);
 }
 std::optional<qpl::filesys::path> get_solution_directory_if_valid(const qpl::filesys::path& path) {
 	auto files = path.list_current_directory();
@@ -102,16 +105,28 @@ std::optional<qpl::filesys::path> get_solution_directory_if_valid(const qpl::fil
 			project_name = i.get_file_name();
 		}
 	}
-
 	if (project_name.empty()) {
 		return std::nullopt;
 	}
 	auto search = path;
 	search.go_into(project_name);
-	if (has_git_directory(search) && is_valid_working_directory(search)) {
+	if (is_valid_working_directory(search)) {
 		return search;
 	}
 	else {
 		return std::nullopt;
 	}
+}
+
+std::optional<qpl::filesys::path> get_git_directory_if_valid(const qpl::filesys::path& path) {
+	auto search = path;
+	search.go_into("git/");
+	if (!search.exists()) {
+		return std::nullopt;
+	}
+	auto list = search.list_current_directory();
+	if (is_git_directory(search)) {
+		return search;
+	}
+	return std::nullopt;
 }

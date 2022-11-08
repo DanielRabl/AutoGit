@@ -34,7 +34,7 @@ void git(const qpl::filesys::path& path, const state& state) {
 	output_file.create();
 
 	if (state.status) {
-		if (state.action == action::pull || state.action == action::none) {
+		if (state.action == action::pull || state.action == action::both) {
 			status_batch = home.appended("git_status.bat");
 			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno");
 			status_data = qpl::to_string(status_display_data, " > ", output_file);
@@ -70,31 +70,35 @@ void git(const qpl::filesys::path& path, const state& state) {
 		return;
 	}
 
-	bool clean_tree = false;
+	info::git_changes = true;
 	if (state.action == action::pull) {
 		if (1 < lines.size()) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
-			clean_tree = qpl::string_equals_ignore_case(start, search);
+			info::git_changes = !qpl::string_equals_ignore_case(start, search);
 		}
 	}
 	else if (state.action == action::push) {
 		std::string search = "nothing to commit, working tree clean";
-		clean_tree = qpl::string_equals_ignore_case(lines.back(), search);
+		info::git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
-	if (clean_tree) {
-		if (state.action == action::pull) {
-			qpl::println("git [PULL] status >> ", qpl::color::light_yellow, "nothing new to fetch.");
-		}
-		else {
-			qpl::println("git [PUSH] status >> ", qpl::color::light_yellow, "nothing new to commit.");
+	if (!info::git_changes) {
+		if (state.print) {
+			if (state.action == action::pull) {
+				qpl::println("git [PULL] status >> ", qpl::color::light_yellow, "nothing new to fetch.");
+			}
+			else {
+				qpl::println("git [PUSH] status >> ", qpl::color::light_yellow, "nothing new to commit.");
+			}
 		}
 	}
 	else {
 		if (!status_display_data.empty()) {
-			qpl::println();
-			execute_batch(status_batch, status_display_data);
+			if (state.print) {
+				qpl::println();
+				execute_batch(status_batch, status_display_data);
+			}
 		}
 		if (!exec_data.empty()) {
 			execute_batch(exec_batch, exec_data);

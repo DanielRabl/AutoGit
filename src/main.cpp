@@ -195,10 +195,15 @@ void run() {
 		input_state(state);
 
 		if (state.action != action::both && !state.status && !state.update) {
-			state.find_collisions = true;
-			state.print = false;
-			execute(location, state);
-			if (!confirm_collisions(state)) {
+			auto collision_state = state;
+
+			collision_state.find_collisions = true;
+			collision_state.print = false;
+			collision_state.check_mode = true;
+			collision_state.status_print = false;
+
+			execute(location, collision_state);
+			if (!confirm_collisions(collision_state)) {
 				continue;
 			}
 		}

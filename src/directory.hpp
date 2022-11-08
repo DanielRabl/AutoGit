@@ -235,7 +235,7 @@ struct directory {
 		this->pull_status.reset();
 		this->push_status.reset();
 
-		if (state.action == action::both) {
+		if (state.action == action::both && (state.status || state.update)) {
 
 			//if (state.status) {
 				qpl::print("STATUS ", qpl::color::aqua, this->path);
@@ -243,6 +243,7 @@ struct directory {
 
 			auto check_mode = state.check_mode;
 			state.check_mode = true;
+			state.status = true;
 			state.print = false;
 			state.find_collisions = true;
 
@@ -270,9 +271,11 @@ struct directory {
 			}
 			else if (this->status_clean()) {
 				qpl::println(" >> clean.");
-			}
+			}			
+			
 			if (state.update) {
 				state.check_mode = check_mode;
+				state.status = false;
 				state.print = true;
 
 				if (this->status_can_push()) {

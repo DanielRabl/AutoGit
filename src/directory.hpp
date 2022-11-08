@@ -5,6 +5,7 @@
 #include "move.hpp"
 #include "exe.hpp"
 #include "git.hpp"
+#include "collisions.hpp"
 
 
 struct directory {
@@ -13,6 +14,7 @@ struct directory {
 	qpl::filesys::path path;
 	status push_status;
 	status pull_status;
+	bool pulled = false;
 
 	bool is_git() const {
 		return this->solution_path.empty() && !this->git_path.empty();
@@ -65,7 +67,7 @@ struct directory {
 	}
 
 	std::vector<command> get_unsorted_commands(const state& state) const {
-		if (this->is_git() && state.location == location::git) {
+		if (this->is_git() && state.location != location::local) {
 			return { command::git };
 		}
 		if (this->is_solution()) {
@@ -124,10 +126,26 @@ struct directory {
 	void git(const state& state) {
 		if (state.location != location::local) {
 			::git(this->get_active_path(), state);
+			if (state.action == action::pull && info::git_changes) {
+				this->pulled = true;
+			}
 		}
 	}
 
 	void execute(const state& state, command command) {
+		if (command == command::move && this->pulled) {
+			auto collision_state = state;
+			collision_state.find_collisions = true;
+			collision_state.print = false;
+			collision_state.check_mode = true;
+			collision_state.only_collisions = true;
+
+			this->execute(collision_state, command::move);
+			if (!confirm_collisions(collision_state)) {
+				return;
+			}
+		}
+
 		bool git_print = command == command::git;
 		bool move_print = command == command::move;
 
@@ -249,6 +267,7 @@ struct directory {
 		}
 		this->pull_status.reset();
 		this->push_status.reset();
+		this->pulled = false;
 
 		if (state.action == action::both && (state.status || state.update)) {
 			if (this->get_pull_commands(state).empty() && this->get_push_commands(state).empty()) {

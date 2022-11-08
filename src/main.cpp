@@ -1,13 +1,6 @@
 #include <qpl/qpl.hpp>
 #include <qpl/winsys.hpp>
 
-#include "state.hpp"
-#include "info.hpp"
-#include "access.hpp"
-#include "collisions.hpp"
-#include "git.hpp"
-#include "move.hpp"
-#include "exe.hpp"
 #include "directory.hpp"
 
 void execute(qpl::filesys::path path, const state& state, bool recursive = true) {

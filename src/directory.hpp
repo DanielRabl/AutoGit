@@ -120,8 +120,8 @@ struct directory {
 	}
 
 	void execute(const state& state, command command) {
-		bool git_print = state.print && command == command::git;
-		bool move_print = state.print && command == command::move;
+		bool git_print = command == command::git;
+		bool move_print = command == command::move;
 
 		if (git_print) {
 			auto word = state.action == action::pull ? "PULL" : "PUSH";
@@ -151,14 +151,24 @@ struct directory {
 			break;
 		}
 
-		if (git_print && !info::git_changes) {
+		if (git_print) {
 			auto word = state.action == action::pull ? "fetch" : "commit";
-			qpl::println(qpl::color::light_yellow, qpl::to_string("nothing new to ", word, "."));
+			if (!info::git_changes) {
+				qpl::println(qpl::color::light_yellow, qpl::to_string("nothing new to ", word, "."));
+			}
+			else if (state.update) {
+				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
+			}
 		}
-		if (move_print && !info::move_changes) {
-			qpl::println(qpl::color::light_yellow, "directories are synchronized.");
+		if (move_print) {
+			if (!info::move_changes) {
+				qpl::println(qpl::color::light_yellow, "directories are synchronized.");
+			}
+			else if (state.update) {
+				qpl::println(qpl::color::light_yellow, "directories are changed.");
+			}
 		}
-		if (state.print && info::any_output) {
+		if (info::any_output) {
 			qpl::println();
 		}
 
@@ -277,7 +287,7 @@ struct directory {
 			qpl::println('\n', word, qpl::color::aqua, this->path);
 
 			auto check_mode = state.check_mode;
-			state.print = true;
+			state.print = state.status;
 			state.status = true;
 			state.check_mode = true;
 			state.find_collisions = true;

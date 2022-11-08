@@ -28,11 +28,11 @@ namespace info {
 		data_overwrites.clear();
 		time_overwrites.clear();
 		removes.clear();
+		move_changes = false;
+		git_changes = false;
 	}
 
 	void command_reset() {
-		move_changes = false;
-		git_changes = false;
 		any_output = false;
 	}
 	bool find_checked(std::string str) {

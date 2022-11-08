@@ -126,12 +126,12 @@ struct directory {
 		if (git_print) {
 			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(info::special_color, " ", "  git [", cw, word, "] status ");
+			qpl::print(info::special_color, "   ", "  git [", cw, word, "] status ");
 		}
 		if (move_print) {
 			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(info::special_color, " ", " move [", cw, word, "] status ");
+			qpl::print(info::special_color, "   ", " move [", cw, word, "] status ");
 		}
 
 		info::command_reset();

@@ -10,45 +10,31 @@
 #include "exe.hpp"
 #include "directory.hpp"
 
-void execute(const std::string& line, const state& state) {
-	auto args = qpl::split_string_whitespace(line);
-
-	if (args.empty()) {
+void execute(qpl::filesys::path path, const state& state, bool recursive = true) {
+	if (path.string().starts_with("//")) {
 		return;
 	}
-	if (args.size() == 1u) {
-		qpl::println("\"", args.front(), "\" no command detected, ignored.");
-		return;
-	}
-	auto path = args.back();
-	auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
-
-	if (args.front().starts_with("//")) {
-		return;
-	}
-	if (args.size() == 2u && args[0] == "SOLUTION") {
-		execute(qpl::to_string("MOVE GIT EXE ", args.back()), state);
-		return;
-	}
-	else if (args.size() == 2u && args[0] == "SOLUTIONS") {
-		auto list = dir_path.ensured_directory_backslash().list_current_directory();
-		for (auto& path : list) {
-			auto valid = get_solution_directory_if_valid(path).has_value();
-			if (valid) {
-				execute(qpl::to_string("MOVE GIT EXE ", path), state);
-			}
-		}
-		return;
+	path.ensure_directory_backslash();
+	if (!path.exists()) {
+		qpl::println('\\', path, "\\ doesn't exist.");
 	}
 
 	directory directory;
 	directory.set_path(path);
-	directory.execute(state);
+	if (directory.empty() && recursive) {
+		auto list = path.list_current_directory();
+		for (auto& path : list) {
+			execute(path, state, false);
+		}
+	}
+	else {
+		directory.execute(state);
+	}
 }
 
 void execute(const std::vector<std::string>& lines, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
-		execute(lines[i], state);
+		execute(qpl::string_remove_whitespace(lines[i]), state);
 	}
 }
 

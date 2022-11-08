@@ -69,7 +69,7 @@ struct directory {
 			return { command::git };
 		}
 		else if (this->is_solution()) {
-			return { command::exe, command::move, command::git };
+			return { command::move, command::git };
 		}
 		return {};
 	}
@@ -77,7 +77,7 @@ struct directory {
 		auto commands = this->get_commands();
 		std::sort(commands.begin(), commands.end(), [&](auto a, auto b) {
 			return a < b;
-		});
+			});
 		return commands;
 	}
 	std::vector<command> get_push_commands() const {
@@ -120,23 +120,55 @@ struct directory {
 	}
 
 	void execute(const state& state, command command) {
+		bool git_print = state.print && command == command::git;
+		bool move_print = state.print && command == command::move;
+
+		if (git_print) {
+			auto word = state.action == action::pull ? "PULL" : "PUSH";
+			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
+			qpl::print(" git [", cw, word, "] status ");
+		}
+		if (move_print) {
+			auto word = state.action == action::pull ? "PULL" : "PUSH";
+			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
+			qpl::print("move [", cw, word, "] status ");
+		}
+
+		info::command_reset();
 		switch (command) {
-		case command::exe: 
-			this->exe(state); 
-			break;
 		case command::move:
-			this->move(state);
+			if (state.action == action::pull) {
+				this->move(state);
+				this->exe(state);
+			}
+			else if (state.action == action::push) {
+				this->exe(state);
+				this->move(state);
+			}
 			break;
 		case command::git:
 			this->git(state);
 			break;
 		}
+
+		if (git_print && !info::git_changes) {
+			auto word = state.action == action::pull ? "fetch" : "commit";
+			qpl::println(qpl::color::light_yellow, qpl::to_string("nothing new to ", word, "."));
+		}
+		if (move_print && !info::move_changes) {
+			qpl::println(qpl::color::light_yellow, "directories are synchronized.");
+		}
+		if (state.print && info::any_output) {
+			qpl::println();
+		}
+
 	}
 	static status get_status() {
 		status status;
 		status.git_changes = info::git_changes;
 		status.local_changes = info::move_changes;
 		status.local_collision = info::any_collisions();
+		status.time_overwrites = !info::time_overwrites.empty();
 		return status;
 	}
 	void determine_status(const state& state) {
@@ -203,6 +235,10 @@ struct directory {
 			this->execute(state, command);
 		}
 		this->determine_status(state);
+
+		if (state.print) {
+			print_collisions(state);
+		}
 	}
 
 	static bool is_command_active(const state& state, command command) {
@@ -237,42 +273,47 @@ struct directory {
 
 		if (state.action == action::both && (state.status || state.update)) {
 
-			//if (state.status) {
-				qpl::print("STATUS ", qpl::color::aqua, this->path);
-			//}
+			auto word = state.status ? "STATUS " : "UPDATE ";
+			qpl::println('\n', word, qpl::color::aqua, this->path);
 
 			auto check_mode = state.check_mode;
-			state.check_mode = true;
+			state.print = true;
 			state.status = true;
-			state.print = false;
+			state.check_mode = true;
 			state.find_collisions = true;
 
-			state.action = action::pull;
-			this->execute(state, this->get_commands(state));
 			state.action = action::push;
 			this->execute(state, this->get_commands(state));
+			state.action = action::pull;
+			this->execute(state, this->get_commands(state));
+
+			if (!state.print) {
+				if (this->push_status.time_overwrites) {
+					state.action = action::push;
+					state.print = false;
+					this->execute(state, this->get_commands(state));
+					state.print = true;
+					print_collisions(state);
+				}
+				if (this->pull_status.time_overwrites) {
+					state.action = action::pull;
+					state.print = false;
+					this->execute(state, this->get_commands(state));
+					state.print = true;
+					print_collisions(state);
+				}
+			}
 
 			if (this->status_can_push()) {
-				qpl::println(" >> should ", qpl::color::light_aqua, "push", '.');
+				qpl::println("result: should ", info::special_color, "push", '.');
 			}
 			else if (this->status_can_pull()) {
-				qpl::println(" >> should ", qpl::color::light_aqua, "pull", '.');
+				qpl::println("result: should ", info::special_color, "pull", '.');
 			}
 			else if (this->status_has_conflicts()) {
-				qpl::println(" >> ", qpl::color::light_red, "CONFLICT: ", this->status_conflict_string());
-
-				state.action = action::pull;
-				this->execute(state, this->get_commands(state));
-				print_collisions(state);
-
-				state.action = action::push;
-				this->execute(state, this->get_commands(state));
-				print_collisions(state);
+				qpl::println('\n', qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());
 			}
-			else if (this->status_clean()) {
-				qpl::println(" >> clean.");
-			}			
-			
+
 			if (state.update) {
 				state.check_mode = check_mode;
 				state.status = false;
@@ -282,24 +323,15 @@ struct directory {
 					state.action = action::push;
 					auto commands = this->get_commands(state);
 
-					qpl::print("UPDATE ");
-					this->print_commands(state, commands);
-					qpl::println(" >> ", qpl::color::light_aqua, "pushing", " . . . ");
-
 					this->execute(state, this->get_commands(state));
 				}
 				else if (this->status_can_pull()) {
 					state.action = action::pull;
 					auto commands = this->get_commands(state);
 
-					qpl::print("UPDATE ");
-					this->print_commands(state, commands);
-					qpl::println(" >> ", qpl::color::light_aqua, "pulling", " . . . ");
-
 					this->execute(state, this->get_commands(state));
 				}
 			}
-
 		}
 		else {
 			auto commands = this->get_commands(state);

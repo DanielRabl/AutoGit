@@ -13,8 +13,10 @@ namespace info {
 	std::vector<std::string> removes;
 	bool move_changes = false;
 	bool git_changes = false;
+	bool any_output = false;
 
 	constexpr auto print_space = 40;
+	auto special_color = qpl::cc(qpl::foreground::light_yellow, qpl::background::gray);
 
 	bool any_collisions() {
 		return data_overwrites.size() || removes.size();
@@ -26,6 +28,12 @@ namespace info {
 		data_overwrites.clear();
 		time_overwrites.clear();
 		removes.clear();
+	}
+
+	void command_reset() {
+		move_changes = false;
+		git_changes = false;
+		any_output = false;
 	}
 	bool find_checked(std::string str) {
 		return checked.find(str) != checked.cend();

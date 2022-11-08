@@ -19,17 +19,19 @@ struct status {
 	bool local_collision = false;
 	bool local_changes = false;
 	bool git_changes = false;
+	bool time_overwrites = false;
 
 	void reset() {
 		this->local_collision = false;
 		this->local_changes = false;
 		this->git_changes = false;
+		this->time_overwrites = false;
 	}
 	std::string string(std::string command) const {
 		std::ostringstream stream;
 
 		if (this->local_collision) {
-			stream << "- " << command << "ing causes collision.\n";
+			stream << "- " << command << "ing would cause conflicts.\n";
 		}
 		if (this->local_changes) {
 			stream << "- " << "needs to " << command << " local files.\n";

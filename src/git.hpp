@@ -83,17 +83,7 @@ void git(const qpl::filesys::path& path, const state& state) {
 		info::git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
-	if (!info::git_changes) {
-		if (state.print) {
-			if (state.action == action::pull) {
-				qpl::println("git [PULL] status >> ", qpl::color::light_yellow, "nothing new to fetch.");
-			}
-			else {
-				qpl::println("git [PUSH] status >> ", qpl::color::light_yellow, "nothing new to commit.");
-			}
-		}
-	}
-	else {
+	if (info::git_changes) {
 		if (!status_display_data.empty()) {
 			if (state.print) {
 				qpl::println();

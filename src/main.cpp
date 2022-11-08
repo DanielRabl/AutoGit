@@ -10,7 +10,7 @@
 #include "exe.hpp"
 #include "directory.hpp"
 
-void execute2(const std::string& line, qpl::time& time_sum, const state& state) {
+void execute(const std::string& line, const state& state) {
 	auto args = qpl::split_string_whitespace(line);
 
 	if (args.empty()) {
@@ -27,7 +27,7 @@ void execute2(const std::string& line, qpl::time& time_sum, const state& state) 
 		return;
 	}
 	if (args.size() == 2u && args[0] == "SOLUTION") {
-		execute2(qpl::to_string("MOVE GIT EXE ", args.back()), time_sum, state);
+		execute(qpl::to_string("MOVE GIT EXE ", args.back()), state);
 		return;
 	}
 	else if (args.size() == 2u && args[0] == "SOLUTIONS") {
@@ -35,7 +35,7 @@ void execute2(const std::string& line, qpl::time& time_sum, const state& state) 
 		for (auto& path : list) {
 			auto valid = get_solution_directory_if_valid(path).has_value();
 			if (valid) {
-				execute2(qpl::to_string("MOVE GIT EXE ", path), time_sum, state);
+				execute(qpl::to_string("MOVE GIT EXE ", path), state);
 			}
 		}
 		return;
@@ -46,153 +46,9 @@ void execute2(const std::string& line, qpl::time& time_sum, const state& state) 
 	directory.execute(state);
 }
 
-void execute(const std::string& line, qpl::time& time_sum, const state& state) {
-	auto args = qpl::split_string_whitespace(line);
-
-	if (args.empty()) {
-		return;
-	}
-	if (args.size() == 1u) {
-		qpl::println("\"", args.front(), "\" no command detected, ignored.");
-		return;
-	}
-	auto path = args.back();
-	auto dir_path = qpl::filesys::path(path).ensured_directory_backslash();
-
-	if (args.front().starts_with("//")) {
-		return;
-	}
-	if (args.size() == 2u && args[0] == "SOLUTION") {
-		execute(qpl::to_string("MOVE GIT EXE ", args.back()), time_sum, state);
-		return;
-	}
-	else if (args.size() == 2u && args[0] == "SOLUTIONS") {
-		auto list = dir_path.ensured_directory_backslash().list_current_directory();
-		for (auto& path : list) {
-			auto valid = get_solution_directory_if_valid(path).has_value();
-			if (valid) {
-				execute(qpl::to_string("MOVE GIT EXE ", path), time_sum, state);
-			}
-		}
-		return;
-	}
-
-	auto solution_optional = get_solution_directory_if_valid(dir_path);
-	if (solution_optional.has_value()) {
-		dir_path = solution_optional.value();
-	}
-
-	auto get_time_priority = [](std::string s) {
-		if (s == "EXE") {
-			return 0u;
-		}
-		else if (s == "MOVE") {
-			return 1u;
-		}
-		else if (s == "GIT") {
-			return 2u;
-		}
-		else {
-			return 3u;
-		}
-	};
-
-	if (state.action == action::pull) {
-		std::sort(args.begin(), args.end() - 1, [&](auto a, auto b) {
-			return get_time_priority(a) > get_time_priority(b);
-			});
-	}
-	else if (state.action == action::push) {
-		std::sort(args.begin(), args.end() - 1, [&](auto a, auto b) {
-			return get_time_priority(a) < get_time_priority(b);
-			});
-	}
-
-	auto active_command = [&](std::string command) {
-		if (command == "MOVE" && state.location == location::git) {
-			return false;
-		}
-		else if (command == "EXE" && (state.location == location::git || state.action == action::pull)) {
-			return false;
-		}
-		else if (command == "GIT" && state.location == location::local) {
-			return false;
-		}
-		else {
-			return true;
-		}
-	};
-
-	bool any_argument_active = false;
-	for (qpl::size i = 0u; i < args.size() - 1; ++i) {
-		const auto& command = args[i];
-		if (active_command(command)) {
-			any_argument_active = true;
-			break;
-		}
-	}
-	if (!any_argument_active) {
-		return;
-	}
-
-	if (state.print) {
-		qpl::println_repeat("\n", 2);
-		for (qpl::size i = 0u; i < args.size() - 1; ++i) {
-			const auto& command = args[i];
-			qpl::color color = active_command(command) ? qpl::color::bright_white : qpl::color::gray;
-			qpl::print(color, args[i], ' ');
-		}
-		qpl::println(qpl::color::aqua, dir_path);
-	}
-
-	info::reset();
-	for (qpl::size i = 0u; i < args.size() - 1; ++i) {
-		const auto& command = args[i];
-		if (command == "MOVE") {
-			if (state.location != location::git) {
-				qpl::small_clock clock;
-				if (state.status) {
-					auto status_state = state;
-					status_state.check_mode = true;
-					move(dir_path, status_state);
-				}
-				else {
-					move(dir_path, state);
-				}
-				time_sum += clock.elapsed();
-			}
-		}
-		else if (command == "GIT") {
-			if (state.location != location::local) {
-				qpl::small_clock clock;
-				git(dir_path, state);
-				time_sum += clock.elapsed();
-			}
-		}
-		else if (command == "EXE") {
-			if (state.location != location::git) {
-				qpl::small_clock clock;
-				exe(dir_path, state);
-				time_sum += clock.elapsed();
-			}
-		}
-		else if (command == "IGNORE") {
-			info::ignore.insert(dir_path);
-		}
-		else {
-			if (state.print) {
-				qpl::println("unkown command \"", command, "\" ignored.");
-			}
-		}
-	}
-	if (state.print || state.find_collisions) {
-		print_collisions(state);
-	}
-}
-
-void execute(const std::vector<std::string>& lines, qpl::time& time_sum, const state& state) {
+void execute(const std::vector<std::string>& lines, const state& state) {
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
-		execute2(lines[i], time_sum, state);
+		execute(lines[i], state);
 	}
 }
 
@@ -347,12 +203,12 @@ void run() {
 	while (true) {
 		info::total_reset();
 
-		qpl::time time_sum = 0u;
+		qpl::small_clock timer;
 
 		state state;
 		input_state(state);
 
-		execute(location, time_sum, state);
+		execute(location, state);
 
 		//if (state.status) {
 		//	state.print = true;
@@ -413,7 +269,7 @@ void run() {
 		
 		qpl::println();
 		qpl::println();
-		auto str = qpl::to_string("TOTAL : ", time_sum.string_until_ms());
+		auto str = qpl::to_string("TOTAL : ", timer.elapsed().string_short());
 		qpl::println_repeat("~", str.length());
 		qpl::println(str);
 		qpl::println_repeat("~", str.length());

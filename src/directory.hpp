@@ -156,7 +156,7 @@ struct directory {
 			if (!info::git_changes) {
 				qpl::println(qpl::color::gray, qpl::to_string("nothing new to ", word, "."));
 			}
-			else if (state.update && !info::any_output) {
+			else if (state.update && info::git_changes) {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
@@ -164,7 +164,7 @@ struct directory {
 			if (!info::move_changes) {
 				qpl::println(qpl::color::gray, "directories are synchronized.");
 			}
-			else if (state.update && !info::any_output) {
+			else if (state.update && info::move_changes) {
 				qpl::println(qpl::color::light_yellow, "directories are changed.");
 			}
 		}
@@ -333,12 +333,14 @@ struct directory {
 					state.action = action::push;
 					auto commands = this->get_commands(state);
 
+					qpl::println();
 					this->execute(state, this->get_commands(state));
 				}
 				else if (this->status_can_pull()) {
 					state.action = action::pull;
 					auto commands = this->get_commands(state);
 
+					qpl::println();
 					this->execute(state, this->get_commands(state));
 				}
 			}

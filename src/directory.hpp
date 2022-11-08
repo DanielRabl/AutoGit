@@ -126,12 +126,12 @@ struct directory {
 		if (git_print) {
 			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print(" git [", cw, word, "] status ");
+			qpl::print(info::special_color, "x", " git [", cw, word, "] status ");
 		}
 		if (move_print) {
 			auto word = state.action == action::pull ? "PULL" : "PUSH";
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::light_blue;
-			qpl::print("move [", cw, word, "] status ");
+			qpl::print(info::special_color, "x", "move [", cw, word, "] status ");
 		}
 
 		info::command_reset();
@@ -156,7 +156,7 @@ struct directory {
 			if (!info::git_changes) {
 				qpl::println(qpl::color::gray, qpl::to_string("nothing new to ", word, "."));
 			}
-			else if (state.update && info::git_changes) {
+			else if (state.update && info::git_changes && state.status) {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
@@ -164,7 +164,7 @@ struct directory {
 			if (!info::move_changes) {
 				qpl::println(qpl::color::gray, "directories are synchronized.");
 			}
-			else if (state.update && info::move_changes) {
+			else if (state.update && info::move_changes && state.status) {
 				qpl::println(qpl::color::light_yellow, "directories are changed.");
 			}
 		}

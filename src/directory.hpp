@@ -156,7 +156,7 @@ struct directory {
 			if (!info::git_changes) {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("nothing new to ", word, "."));
 			}
-			else if (state.update) {
+			else if (state.update && !state.status) {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
@@ -164,7 +164,7 @@ struct directory {
 			if (!info::move_changes) {
 				qpl::println(qpl::color::light_yellow, "directories are synchronized.");
 			}
-			else if (state.update) {
+			else if (state.update && !state.status) {
 				qpl::println(qpl::color::light_yellow, "directories are changed.");
 			}
 		}

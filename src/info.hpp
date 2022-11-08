@@ -16,7 +16,7 @@ namespace info {
 	bool any_output = false;
 
 	constexpr auto print_space = 40;
-	auto special_color = qpl::cc(qpl::foreground::red, qpl::background::red);
+	auto special_color = qpl::cc(qpl::foreground::aqua, qpl::background::aqua);
 
 	bool any_collisions() {
 		return data_overwrites.size() || removes.size();

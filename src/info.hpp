@@ -17,8 +17,11 @@ namespace info {
 
 	constexpr auto print_space = 40;
 
-	bool any_collisions() {
+	bool any_serious_collisions() {
 		return data_overwrites.size() || removes.size();
+	}
+	bool any_collisions() {
+		return any_serious_collisions() || time_overwrites.size();
 	}
 	void total_reset() {
 		total_change_sum = 0u;

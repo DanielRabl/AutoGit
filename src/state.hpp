@@ -64,7 +64,7 @@ constexpr auto command_string(command command) {
 struct state {
 	bool check_mode = true;
 	bool print = true;
-	bool status_print = true;
+	bool only_collisions = false;
 	bool find_collisions = true;
 	::action action = action::both;
 	::location location = location::both;

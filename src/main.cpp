@@ -200,7 +200,7 @@ void run() {
 			collision_state.find_collisions = true;
 			collision_state.print = false;
 			collision_state.check_mode = true;
-			collision_state.status_print = false;
+			collision_state.only_collisions = true;
 
 			execute(location, collision_state);
 			if (!confirm_collisions(collision_state)) {

@@ -133,11 +133,11 @@ struct directory {
 
 		auto word = state.action == action::pull ? "PULL" : "PUSH";
 		auto status_word = state.status ? "status" : "update status";
-		if (state.status_print && git_print) {
+		if (!state.only_collisions && git_print) {
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
 			qpl::print(cw, "------", " git [", cw, word, "] ", status_word, " ");
 		}
-		if (state.status_print && move_print) {
+		if (!state.only_collisions && move_print) {
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
 			qpl::print(cw, "-----", " move [", cw, word, "] ", status_word, " ");
 		}
@@ -159,7 +159,7 @@ struct directory {
 			break;
 		}
 
-		if (state.status_print && git_print) {
+		if (!state.only_collisions && git_print) {
 			auto word = state.action == action::pull ? "fetch" : "commit";
 			if (!info::git_changes) {
 				qpl::println(qpl::color::gray, qpl::to_string("nothing new to ", word, "."));
@@ -168,7 +168,7 @@ struct directory {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
-		if (state.status_print && move_print) {
+		if (!state.only_collisions && move_print) {
 			if (!info::move_changes) {
 				qpl::println(qpl::color::gray, "directories are synchronized.");
 			}
@@ -180,12 +180,18 @@ struct directory {
 			qpl::println();
 		}
 
+		if (state.only_collisions) {
+			if (info::any_collisions()) {
+				qpl::println("Collisions", qpl::color::aqua, this->path);
+				print_collisions(state);
+			}
+		}
 	}
 	static status get_status() {
 		status status;
 		status.git_changes = info::git_changes;
 		status.local_changes = info::move_changes;
-		status.local_collision = info::any_collisions();
+		status.local_collision = info::any_serious_collisions();
 		status.time_overwrites = !info::time_overwrites.empty();
 		return status;
 	}
@@ -249,7 +255,7 @@ struct directory {
 				return;
 			}
 
-			if (state.status_print) {
+			if (!state.only_collisions) {
 				auto word = state.status ? "STATUS " : "UPDATE ";
 				qpl::println('\n', word, qpl::color::aqua, this->path);
 			}
@@ -282,7 +288,7 @@ struct directory {
 				}
 			}
 
-			if (state.status_print) {
+			if (!state.only_collisions) {
 				if (this->status_can_push()) {
 					qpl::println("can safely ", qpl::color::aqua, "push", '.');
 				}
@@ -321,7 +327,7 @@ struct directory {
 				return;
 			}
 
-			if (state.status_print) {
+			if (!state.only_collisions) {
 				auto word = state.status ? "STATUS " : "UPDATE ";
 				qpl::println('\n', word, qpl::color::aqua, this->path);
 			}

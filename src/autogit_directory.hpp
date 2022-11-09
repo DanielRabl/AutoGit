@@ -222,11 +222,20 @@ struct autogit_directory {
 	bool status_can_push() const {
 		return this->push_status.can_execute() && !this->pull_status.git_changes;
 	}
+	bool status_can_push_both_changes() const {
+		return this->push_status.both_changes() && !this->pull_status.git_changes;
+	}
 	bool status_can_pull() const {
 		return this->pull_status.can_execute() && !this->push_status.git_changes;
 	}
+	bool status_can_pull_both_changes() const {
+		return this->pull_status.both_changes() && !this->push_status.git_changes;
+	}
 	bool status_has_conflicts() const {
 		if (this->status_can_pull() || this->status_can_push()) {
+			return false;
+		}
+		if (this->status_can_push_both_changes() || this->status_can_pull_both_changes()) {
 			return false;
 		}
 		return !this->status_clean();
@@ -310,6 +319,8 @@ struct autogit_directory {
 			if (!state.only_collisions) {
 				auto can_push = this->status_can_push();
 				auto can_pull = this->status_can_pull();
+				auto can_push_both_changes = this->status_can_push_both_changes();
+				auto can_pull_both_changes = this->status_can_pull_both_changes();
 
 				if (can_push || can_pull) {
 					auto word = can_push ? "push" : "pull";
@@ -317,6 +328,14 @@ struct autogit_directory {
 					qpl::println(".-----------------.");
 					qpl::println("| can safely ", qpl::color::aqua, word, " |");
 					qpl::println(".-----------------.");
+				}
+				if (can_push_both_changes || can_pull_both_changes) {
+					auto word = can_push_both_changes ? "push" : "pull";
+					if (!this->history.any_output) qpl::println();
+
+					qpl::println(".-------------------------------------------------------.");
+					qpl::println("| can ", qpl::color::aqua, word, ", but would overwrite files in the git folder | ");
+					qpl::println(".-------------------------------------------------------.");
 				}
 				else if (this->status_has_conflicts()) {
 					qpl::println(qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());
@@ -328,14 +347,27 @@ struct autogit_directory {
 				state.status = false;
 				state.print = true;
 
-				if (this->status_can_push()) {
+				if (this->status_can_push_both_changes() || this->status_can_pull_both_changes()) {
+					while (true) {
+						qpl::print("are you sure to overwrite the files in the git folder? (y/n) > ");
+						auto input = qpl::get_input();
+						if (qpl::string_equals_ignore_case(input, "y")) {
+							break;
+						}
+						else if (qpl::string_equals_ignore_case(input, "n")) {
+							return;
+						}
+					}
+				}
+
+				if (this->status_can_push() || this->status_can_push_both_changes()) {
 					state.action = action::push;
 					auto commands = this->get_commands(state);
 
 					qpl::println();
 					this->execute(state, this->get_commands(state));
 				}
-				else if (this->status_can_pull()) {
+				else if (this->status_can_pull() || this->status_can_pull_both_changes()) {
 					state.action = action::pull;
 					auto commands = this->get_commands(state);
 

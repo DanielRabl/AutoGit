@@ -3,93 +3,99 @@
 #include "autogit.hpp"
 
 
+bool input_state(state& state, const std::string& input, const autogit& autogit) {
+	auto split = qpl::split_string_whitespace(input);
+	if (split.empty()) {
+		return false;
+	}
+
+	bool abort = false;
+	state.reset();
+
+	for (auto& arg : split) {
+
+		std::vector<qpl::filesys::path> found_locations;
+		for (auto& dir : autogit.directories) {
+			auto project_name = dir.path.ensured_directory_backslash().get_directory_name();
+			if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
+				arg = arg.substr(1u, arg.length() - 2u);
+			}
+			if (qpl::string_equals_ignore_case(project_name, arg)) {
+				found_locations.push_back(dir.path);
+			}
+		}
+
+		if (qpl::string_equals_ignore_case(arg, "check")) {
+			state.check_mode = true;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "quick")) {
+			state.quick_mode = true;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "local")) {
+			state.location = location::local;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "git")) {
+			state.location = location::git;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "push")) {
+			state.action = action::push;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "pull")) {
+			state.action = action::pull;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "status")) {
+			state.status = true;
+		}
+		else if (qpl::string_equals_ignore_case(arg, "update")) {
+			state.update = true;
+		}
+		else if (found_locations.size()) {
+			qpl::filesys::path target = found_locations.front();
+			if (found_locations.size() > 1) {
+				while (true) {
+					qpl::println("there are multiple directories that match \"", arg, "\".");
+					qpl::println("select the right location: \n");
+					for (qpl::size i = 0u; i < found_locations.size(); ++i) {
+						qpl::println(qpl::color::aqua, qpl::to_string('<', i, '>'), " ", found_locations[i]);
+					}
+					qpl::print("> ");
+					auto number = qpl::get_input();
+					if (qpl::is_string_number(number)) {
+						auto index = qpl::size_cast(number);
+						if (index < found_locations.size()) {
+							target = found_locations[index];
+							qpl::println("selected ", target);
+							break;
+						}
+					}
+					qpl::println("invalid input.\n");
+				}
+			}
+			state.target_input_directories.push_back(target);
+		}
+		else {
+			qpl::println("\"", arg, "\" invalid argument.\n");
+			abort = true;
+		}
+	}
+	if (abort) {
+		return false;
+	}
+	if (state.action == action::both && !(state.status || state.update)) {
+		qpl::println("\"", split, "\" invalid arguments.\n");
+		return false;
+	}
+	return true;
+}
+
 void input_state(state& state, const autogit& autogit) {
 	while (true) {
 		qpl::print("PULL changes or PUSH changes > ");
 		auto input = qpl::get_input();
 
-		auto split = qpl::split_string_whitespace(input);
-		if (split.empty()) {
-			continue;
+		if (input_state(state, input, autogit)) {
+			return;
 		}
-
-		bool abort = false;
-		state.reset();
-		
-		for (auto& arg : split) {
-
-			std::vector<qpl::filesys::path> found_locations;
-			for (auto& dir : autogit.directories) {
-				auto project_name = dir.path.ensured_directory_backslash().get_directory_name();
-				if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
-					arg = arg.substr(1u, arg.length() - 2u);
-				}
-				if (qpl::string_equals_ignore_case(project_name, arg)) {
-					found_locations.push_back(dir.path);
-				}
-			}
-
-			if (qpl::string_equals_ignore_case(arg, "check")) {
-				state.check_mode = true;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "quick")) {
-				state.quick_mode = true;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "local")) {
-				state.location = location::local;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "git")) {
-				state.location = location::git;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "push")) {
-				state.action = action::push;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "pull")) {
-				state.action = action::pull;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "status")) {
-				state.status = true;
-			}
-			else if (qpl::string_equals_ignore_case(arg, "update")) {
-				state.update = true;
-			}
-			else if (found_locations.size()) {
-				qpl::filesys::path target = found_locations.front();
-				if (found_locations.size() > 1) {
-					while (true) {
-						qpl::println("there are multiple directories that match \"", arg, "\".");
-						qpl::println("select the right location: \n");
-						for (qpl::size i = 0u; i < found_locations.size(); ++i) {
-							qpl::println(qpl::color::aqua, qpl::to_string('<', i, '>'), " ", found_locations[i]);
-						}
-						qpl::print("> ");
-						auto number = qpl::get_input();
-						if (qpl::is_string_number(number)) {
-							auto index = qpl::size_cast(number);
-							if (index < found_locations.size()) {
-								target = found_locations[index];
-								qpl::println("selected ", target);
-								break;
-							}
-						}
-						qpl::println("invalid input.\n");
-					}
-				}
-				state.target_input_directories.push_back(target);
-			}
-			else {
-				qpl::println("\"", arg, "\" invalid argument.\n");
-				abort = true;
-			}
-		}
-		if (abort) {
-			continue;
-		}
-		if (state.action == action::both && !(state.status || state.update)) {
-			qpl::println("\"", split, "\" invalid arguments.\n");
-			continue;
-		}
-		return;
 	}
 }
 
@@ -188,7 +194,26 @@ std::vector<std::string> find_location() {
 	return result;
 }
 
-void run() {
+void run(const std::vector<std::string>& input) {
+	auto location = find_location();
+	if (location.empty()) {
+		return;
+	}
+
+	autogit autogit;
+	for (auto& input : input) {
+		info::total_reset();
+
+		autogit.find_directories(location);
+
+		state state;
+		input_state(state, input, autogit);
+
+		autogit.execute(state);
+	}
+}
+
+void run_loop() {
 	auto location = find_location();
 	if (location.empty()) {
 		return;
@@ -196,45 +221,29 @@ void run() {
 
 	autogit autogit;
 
-
 	while (true) {
 		info::total_reset();
 
 		autogit.find_directories(location);
 
-		qpl::small_clock timer;
-
 		state state;
 		input_state(state, autogit);
 
-		if (state.action != action::both && !state.status && !state.update) {
-			auto collision_state = state;
-
-			collision_state.find_collisions = true;
-			collision_state.print = false;
-			collision_state.check_mode = true;
-			collision_state.only_collisions = true;
-
-			autogit.execute(collision_state);
-			if (!confirm_collisions(collision_state)) {
-				continue;
-			}
-		}
 		autogit.execute(state);
-
-		if (timer.elapsed_f() > 10.0) {
-			qpl::println('\n');
-			auto str = qpl::to_string("time : ", timer.elapsed().string_short());
-			qpl::println_repeat("-", str.length());
-			qpl::println(str);
-			qpl::println_repeat("-", str.length());
-		}
-		qpl::println('\n');
 	}
 }
 
-int main() try {
-	run();
+int main(int argc, char** argv) try {
+	if (argc > 1) {
+		std::vector<std::string> args(argc - 1);
+		for (qpl::isize i = 0; i < argc - 1; ++i) {
+			args[i] = argv[i + 1];
+		}
+		run(args);
+	}
+	else {
+		run_loop();
+	}
 }
 catch (std::exception& any) {
 	qpl::println("caught exception:\n", any.what());

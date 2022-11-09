@@ -50,6 +50,9 @@ struct status {
 	bool can_execute() const {
 		return !this->local_collision && ((this->local_changes && !this->git_changes) || this->just_git_changes());
 	}
+	bool both_changes() const {
+		return this->local_collision == false && this->local_changes == true && this->git_changes == true;
+	}
 };
 
 constexpr auto command_string(command command) {

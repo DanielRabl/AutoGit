@@ -384,12 +384,10 @@ struct autogit_directory {
 			if (commands.empty()) {
 				return;
 			}
-
 			if (!state.only_collisions) {
 				auto word = state.status ? "STATUS " : "UPDATE ";
 				qpl::println('\n', word, qpl::color::aqua, this->path);
 			}
-			qpl::println("single execute : ", this->path);
 			this->execute(state, this->get_commands(state));
 		}
 

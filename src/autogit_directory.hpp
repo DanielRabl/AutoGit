@@ -313,6 +313,7 @@ struct autogit_directory {
 
 				if (can_push || can_pull) {
 					auto word = can_push ? "push" : "pull";
+					if (!this->history.any_output) qpl::println();
 					qpl::println(".-----------------.");
 					qpl::println("| can safely ", qpl::color::aqua, word, " |");
 					qpl::println(".-----------------.");

@@ -334,7 +334,7 @@ struct autogit_directory {
 					if (!this->history.any_output) qpl::println();
 
 					qpl::println(".-------------------------------------------------------.");
-					qpl::println("| can ", qpl::color::aqua, word, ", but would overwrite files in the git folder | ");
+					qpl::println("| can ", qpl::color::aqua, word, ", but would overwrite changes in the git folder | ");
 					qpl::println(".-------------------------------------------------------.");
 				}
 				else if (this->status_has_conflicts()) {
@@ -347,9 +347,12 @@ struct autogit_directory {
 				state.status = false;
 				state.print = true;
 
-				if (this->status_can_push_both_changes() || this->status_can_pull_both_changes()) {
+				auto can_push_both_changes = this->status_can_push_both_changes();
+				auto can_pull_both_changes = this->status_can_pull_both_changes();
+				if (can_push_both_changes || can_pull_both_changes) {
+					auto word = can_push_both_changes ? "push" : "pull";
 					while (true) {
-						qpl::print("are you sure to overwrite the files in the git folder? (y/n) > ");
+						qpl::print("do you want to overwrite the git directory changes after ", can_push_both_changes ? "local " : "git ", qpl::color::aqua, word, " (y / n) > ");
 						auto input = qpl::get_input();
 						if (qpl::string_equals_ignore_case(input, "y")) {
 							break;
@@ -360,14 +363,14 @@ struct autogit_directory {
 					}
 				}
 
-				if (this->status_can_push() || this->status_can_push_both_changes()) {
+				if (this->status_can_push() || can_push_both_changes) {
 					state.action = action::push;
 					auto commands = this->get_commands(state);
 
 					qpl::println();
 					this->execute(state, this->get_commands(state));
 				}
-				else if (this->status_can_pull() || this->status_can_pull_both_changes()) {
+				else if (this->status_can_pull() || can_pull_both_changes) {
 					state.action = action::pull;
 					auto commands = this->get_commands(state);
 

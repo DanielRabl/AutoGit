@@ -222,12 +222,14 @@ void run() {
 		}
 		autogit.execute(state);
 
-		qpl::println_repeat('\n', 2);
-		auto str = qpl::to_string("TOTAL : ", timer.elapsed().string_short());
-		qpl::println_repeat("~", str.length());
-		qpl::println(str);
-		qpl::println_repeat("~", str.length());
-		qpl::println_repeat('\n', 2);
+		if (timer.elapsed_f() > 10.0) {
+			qpl::println('\n');
+			auto str = qpl::to_string("time : ", timer.elapsed().string_short());
+			qpl::println_repeat("-", str.length());
+			qpl::println(str);
+			qpl::println_repeat("-", str.length());
+		}
+		qpl::println('\n');
 	}
 }
 

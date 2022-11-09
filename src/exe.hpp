@@ -29,8 +29,8 @@ std::optional<qpl::filesys::path> get_most_recent_exe(const qpl::filesys::path& 
 	return executables.back().second;
 }
 
-void exe(const qpl::filesys::path& path, const state& state) {
-	if (state.action != action::push) {
+void exe(const qpl::filesys::path& path, const state& state, history_status& history) {
+	if (state.mode.action != action::push) {
 		return;
 	}
 	auto parent = path.get_parent_branch();
@@ -49,22 +49,22 @@ void exe(const qpl::filesys::path& path, const state& state) {
 		return;
 	}
 
-	info::move_changes = true;
-	if (state.print) {
-		if (!info::any_output) qpl::println();
+	history.move_changes = true;
+	if (state.mode.print) {
+		if (!history.any_output) qpl::println();
 
 		std::string word;
 		if (destination.exists()) {
-			word = state.check_mode ? "[*]MODIFY .exe" : "MODIFIED .exe";
+			word = state.mode.check_mode ? "[*]MODIFY .exe" : "MODIFIED .exe";
 		}
 		else {
-			word = state.check_mode ? "[*]NEW .exe" : "ADDED .exe";
+			word = state.mode.check_mode ? "[*]NEW .exe" : "ADDED .exe";
 		}
-		qpl::println(state.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
-		info::any_output = true;
+		qpl::println(state.mode.check_mode ? qpl::color::white : qpl::color::light_green, qpl::str_lspaced(word, info::print_space), destination);
+		history.any_output = true;
 	}
 
-	if (!state.check_mode) {
+	if (!state.mode.check_mode) {
 		target_exe.copy_overwrite(destination);
 	}
 }

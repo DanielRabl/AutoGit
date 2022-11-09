@@ -11,9 +11,6 @@ namespace info {
 	std::vector<std::string> data_overwrites;
 	std::vector<std::string> time_overwrites;
 	std::vector<std::string> removes;
-	bool move_changes = false;
-	bool git_changes = false;
-	bool any_output = false;
 
 	constexpr auto print_space = 40;
 
@@ -30,13 +27,8 @@ namespace info {
 		data_overwrites.clear();
 		time_overwrites.clear();
 		removes.clear();
-		move_changes = false;
-		git_changes = false;
 	}
 
-	void command_reset() {
-		any_output = false;
-	}
 	bool find_checked(std::string str) {
 		return checked.find(str) != checked.cend();
 	}

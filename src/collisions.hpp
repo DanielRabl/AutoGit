@@ -4,7 +4,7 @@
 #include "info.hpp"
 
 void print_collisions(const state& state) {
-	auto action_word = state.action == action::pull ? "PULL" : "PUSH";
+	auto action_word = state.mode.action == action::pull ? "PULL" : "PUSH";
 	auto size = info::time_overwrites.size();
 	if (size) {
 		qpl::println();
@@ -18,7 +18,7 @@ void print_collisions(const state& state) {
 	size = info::data_overwrites.size();
 	if (size) {
 		qpl::println();
-		if (!state.check_mode) {
+		if (!state.mode.check_mode) {
 			qpl::print("WARNING: ");
 		}
 		qpl::println("There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::light_red, action_word, " would overwrite a more recent version.");
@@ -29,7 +29,7 @@ void print_collisions(const state& state) {
 	size = info::removes.size();
 	if (size) {
 		qpl::println();
-		if (!state.check_mode) {
+		if (!state.mode.check_mode) {
 			qpl::print("WARNING: ");
 		}
 		qpl::println("There ", (size == 1 ? "is " : "are "), size, (size == 1 ? " file " : " files "), "where a ", qpl::color::light_red, action_word, " would remove them.");
@@ -40,7 +40,7 @@ void print_collisions(const state& state) {
 }
 
 bool confirm_collisions(const state& state) {
-	if (info::total_change_sum && !state.status) {
+	if (info::total_change_sum && !state.mode.status) {
 		while (true) {
 			qpl::println();
 			auto word = info::total_change_sum > 1 ? "files" : "file";

@@ -62,13 +62,30 @@ constexpr auto command_string(command command) {
 }
 
 struct state {
-	bool check_mode = true;
-	bool print = true;
-	bool only_collisions = false;
-	bool find_collisions = true;
-	::action action = action::both;
-	::location location = location::both;
-	bool status = false;
-	bool quick_mode = false;
-	bool update = false;
+	struct {
+		bool check_mode = true;
+		bool print = true;
+		bool only_collisions = false;
+		bool find_collisions = true;
+		bool status = false;
+		bool quick_mode = false;
+		bool update = false;
+		::action action = action::both;
+		::location location = location::both;
+	} mode;
+
+};
+
+struct history_status {
+	bool move_changes = false;
+	bool git_changes = false;
+	bool any_output = false;
+
+	void reset() {
+		this->move_changes = false;
+		this->git_changes = false;
+	}
+	void command_reset() {
+		this->any_output = false;
+	}
 };

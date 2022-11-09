@@ -42,36 +42,36 @@ void input_state(state& state) {
 		}
 
 		bool abort = false;
-		state.check_mode = false;
-		state.status = false;
-		state.quick_mode = false;
-		state.update = false;
-		state.location = location::both;
-		state.action = action::both;
+		state.mode.check_mode = false;
+		state.mode.status = false;
+		state.mode.quick_mode = false;
+		state.mode.update = false;
+		state.mode.location = location::both;
+		state.mode.action = action::both;
 		for (auto& arg : split) {
 			if (qpl::string_equals_ignore_case(arg, "check")) {
-				state.check_mode = true;
+				state.mode.check_mode = true;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "quick")) {
-				state.quick_mode = true;
+				state.mode.quick_mode = true;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "local")) {
-				state.location = location::local;
+				state.mode.location = location::local;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "git")) {
-				state.location = location::git;
+				state.mode.location = location::git;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "push")) {
-				state.action = action::push;
+				state.mode.action = action::push;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "pull")) {
-				state.action = action::pull;
+				state.mode.action = action::pull;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "status")) {
-				state.status = true;
+				state.mode.status = true;
 			}
 			else if (qpl::string_equals_ignore_case(arg, "update")) {
-				state.update = true;
+				state.mode.update = true;
 			}
 			else {
 				qpl::println("\"", arg, "\" invalid argument.\n");
@@ -81,7 +81,7 @@ void input_state(state& state) {
 		if (abort) {
 			continue;
 		}
-		if (state.action == action::both && !(state.status || state.update)) {
+		if (state.mode.action == action::both && !(state.mode.status || state.mode.update)) {
 			qpl::println("\"", split, "\" invalid arguments.\n");
 			continue;
 		}
@@ -187,13 +187,13 @@ void run() {
 		state state;
 		input_state(state);
 
-		if (state.action != action::both && !state.status && !state.update) {
+		if (state.mode.action != action::both && !state.mode.status && !state.mode.update) {
 			auto collision_state = state;
 
-			collision_state.find_collisions = true;
-			collision_state.print = false;
-			collision_state.check_mode = true;
-			collision_state.only_collisions = true;
+			collision_state.mode.find_collisions = true;
+			collision_state.mode.print = false;
+			collision_state.mode.check_mode = true;
+			collision_state.mode.only_collisions = true;
 
 			execute(location, collision_state);
 			if (!confirm_collisions(collision_state)) {

@@ -4,8 +4,8 @@
 #include "info.hpp"
 #include "batch.hpp"
 
-void git(const qpl::filesys::path& path, const state& state) {
-	if (state.check_mode && !state.status) {
+void git(const qpl::filesys::path& path, const state& state, history_status& history) {
+	if (state.mode.check_mode && !state.mode.status) {
 		return;
 	}
 
@@ -33,26 +33,26 @@ void git(const qpl::filesys::path& path, const state& state) {
 	auto output_file = home.appended("output.txt");
 	output_file.create();
 
-	if (state.status) {
-		if (state.action == action::pull || state.action == action::both) {
+	if (state.mode.status) {
+		if (state.mode.action == action::pull || state.mode.action == action::both) {
 			status_batch = home.appended("git_status.bat");
 			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno");
 			status_data = qpl::to_string(status_display_data, " > ", output_file);
 		}
-		else if (state.action == action::push) {
+		else if (state.mode.action == action::push) {
 			status_batch = home.appended("git_status.bat");
 			status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
 			status_data = qpl::to_string(status_display_data, " > ", output_file);
 		}
 	}
-	else if (state.action == action::pull) {
+	else if (state.mode.action == action::pull) {
 		status_batch = home.appended("git_pull_status.bat");
 		status_data = qpl::to_string("@echo off && ", set_directory, " && git fetch && git status -uno > ", output_file);
 
 		exec_batch = home.appended("git_pull.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git pull");
 	}
-	else if (state.action == action::push) {
+	else if (state.mode.action == action::push) {
 		status_batch = home.appended("git_push_status.bat");
 		status_display_data = qpl::to_string("@echo off && ", set_directory, " && git add -A && git status");
 		status_data = qpl::to_string(status_display_data, " > ", output_file);
@@ -70,22 +70,22 @@ void git(const qpl::filesys::path& path, const state& state) {
 		return;
 	}
 
-	info::git_changes = true;
-	if (state.action == action::pull) {
+	history.git_changes = true;
+	if (state.mode.action == action::pull) {
 		if (1 < lines.size()) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
-			info::git_changes = !qpl::string_equals_ignore_case(start, search);
+			history.git_changes = !qpl::string_equals_ignore_case(start, search);
 		}
 	}
-	else if (state.action == action::push) {
+	else if (state.mode.action == action::push) {
 		std::string search = "nothing to commit, working tree clean";
-		info::git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
+		history.git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
 	}
 
-	if (info::git_changes) {
+	if (history.git_changes) {
 		if (!status_display_data.empty()) {
-			if (state.print) {
+			if (state.mode.print) {
 				qpl::println();
 				execute_batch(status_batch, status_display_data);
 			}

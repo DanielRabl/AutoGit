@@ -308,11 +308,14 @@ struct autogit_directory {
 			}
 
 			if (!state.only_collisions) {
-				if (this->status_can_push()) {
-					qpl::println("can safely ", qpl::color::aqua, "push", '.');
-				}
-				else if (this->status_can_pull()) {
-					qpl::println("can safely ", qpl::color::light_green, "pull", '.');
+				auto can_push = this->status_can_push();
+				auto can_pull = this->status_can_pull();
+
+				if (can_push || can_pull) {
+					auto word = can_push ? "push" : "pull";
+					qpl::println(".-----------------.");
+					qpl::println("| can safely ", qpl::color::aqua, word, " |");
+					qpl::println(".-----------------.");
 				}
 				else if (this->status_has_conflicts()) {
 					qpl::println(qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());

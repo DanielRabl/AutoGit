@@ -48,6 +48,11 @@ void exe(const qpl::filesys::path& path, const state& state, history_status& his
 	if (destination.exists() && target_exe.file_content_equals(destination)) {
 		return;
 	}
+	auto time1 = target_exe.last_write_time();
+	auto time2 = destination.last_write_time();
+	if (time2.time_since_epoch().count() > time1.time_since_epoch().count()) {
+		return;
+	}
 
 	history.move_changes = true;
 	if (state.print) {

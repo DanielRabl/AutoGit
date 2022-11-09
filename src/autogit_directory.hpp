@@ -261,11 +261,12 @@ struct autogit_directory {
 		}
 		this->determine_status(state);
 
+		auto actual_update = state.update && !state.status;
 		if (state.only_collisions && this->history.any_collisions()) {
 			qpl::println("COLLISIONS ", qpl::color::aqua, this->path);
 			print_collisions(state, this->history);
 		}
-		else if (state.print) {
+		else if (state.print && !actual_update) {
 			print_collisions(state, this->history);
 		}
 	}

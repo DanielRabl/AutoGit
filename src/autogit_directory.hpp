@@ -288,7 +288,6 @@ struct autogit_directory {
 		}
 		state.status = false;
 		state.print = true;
-		state.update = true;
 
 		auto can_push_both_changes = this->status_can_push_both_changes();
 		auto can_pull_both_changes = this->status_can_pull_both_changes();

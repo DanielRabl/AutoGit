@@ -12,6 +12,7 @@ struct autogit_directory {
 	qpl::filesys::path solution_path;
 	qpl::filesys::path git_path;
 	qpl::filesys::path path;
+	std::string directory_name;
 	status push_status;
 	status pull_status;
 	history_status history;
@@ -24,6 +25,9 @@ struct autogit_directory {
 	}
 	bool is_solution() const {
 		return !this->solution_path.empty() && !this->git_path.empty();
+	}
+	bool is_solution_without_git() const {
+		return !this->solution_path.empty() && this->git_path.empty();
 	}
 	bool empty() {
 		return !this->is_git() && !this->is_solution();
@@ -57,6 +61,10 @@ struct autogit_directory {
 		}
 		else if (is_git_directory(this->path)) {
 			this->git_path = this->path;
+		}
+		this->directory_name = this->path.ensured_directory_backslash().get_directory_name();
+		if (this->directory_name == "git") {
+			this->directory_name = this->path.get_parent_branch().get_directory_name();
 		}
 	}
 	qpl::filesys::path get_active_path() const {

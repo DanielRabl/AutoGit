@@ -6,7 +6,7 @@
 struct autogit {
 	std::vector<autogit_directory> directories;
 
-	void find_directory(qpl::filesys::path path, bool recursive = true) {
+	void find_directory(qpl::filesys::path path) {
 		if (path.string().starts_with("//")) {
 			return;
 		}
@@ -17,14 +17,30 @@ struct autogit {
 
 		autogit_directory directory;
 		directory.set_path(path);
-		if (directory.empty() && recursive) {
-			auto list = path.list_current_directory();
-			for (auto& path : list) {
-				this->find_directory(path, false);
+		if (directory.empty()) {
+			if (path.is_directory() && !directory.is_solution_without_git()) {
+				auto list = path.list_current_directory();
+				for (auto& path : list) {
+					this->find_directory(path);
+				}
 			}
 		}
 		else {
 			this->directories.push_back(directory);
+		}
+	}
+	void print() {
+
+		qpl::size length = 0u;
+		for (auto& i : this->directories) {
+			if (!i.empty()) {
+				length = qpl::max(length, i.directory_name.length());
+			}
+		}
+		for (auto& i : this->directories) {
+			if (!i.empty()) {
+				qpl::println(qpl::appended_to_string_to_fit(qpl::to_string(i.directory_name, ' '), "- ", length + 3), qpl::color::aqua, i.path);
+			}
 		}
 	}
 	void find_directories(const std::vector<std::string>& location) {

@@ -16,12 +16,12 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 
 		std::vector<qpl::filesys::path> found_locations;
 		for (auto& dir : autogit.directories) {
-			auto project_name = dir.path.ensured_directory_backslash().get_directory_name();
 			if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
 				arg = arg.substr(1u, arg.length() - 2u);
 			}
-			if (qpl::string_equals_ignore_case(project_name, arg)) {
+			if (qpl::string_equals_ignore_case(dir.directory_name, arg)) {
 				found_locations.push_back(dir.path);
+				qpl::println(dir.path, " is git: ", dir.is_git(), " ", dir.is_solution());
 			}
 		}
 
@@ -64,13 +64,13 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 						auto index = qpl::size_cast(number);
 						if (index < found_locations.size()) {
 							target = found_locations[index];
-							qpl::println("selected ", target);
 							break;
 						}
 					}
 					qpl::println("invalid input.\n");
 				}
 			}
+			qpl::println("selected ", qpl::color::aqua, target);
 			state.target_input_directories.push_back(target);
 		}
 		else {
@@ -213,18 +213,10 @@ std::vector<std::string> find_location() {
 	return result;
 }
 
-void run_loop() {
-	auto location = find_location();
-	if (location.empty()) {
-		return;
-	}
-
-	autogit autogit;
+void run_loop(autogit& autogit) {
 
 	while (true) {
 		info::total_reset();
-
-		autogit.find_directories(location);
 
 		state state;
 		input_state(state, autogit);
@@ -233,38 +225,41 @@ void run_loop() {
 	}
 }
 
-void run(const std::vector<std::string>& input) {
-	auto location = find_location();
-	if (location.empty()) {
-		return;
-	}
-
-	autogit autogit;
+void run(const std::vector<std::string>& input, autogit& autogit) {
 	for (auto& input : input) {
 		info::total_reset();
-
-		autogit.find_directories(location);
 
 		state state;
 		input_state(state, input, autogit);
 
 		autogit.execute(state);
 	}
-	run_loop();
+	run_loop(autogit);
 }
 
 int main(int argc, char** argv) try {
 	print_commands();
+	auto location = find_location();
+	if (location.empty()) {
+		qpl::println("no directories found.");
+		qpl::system_pause();
+		return 0;
+	}
+
+	autogit autogit;
+	autogit.find_directories(location);
+	autogit.print();
+	qpl::println();
 
 	if (argc > 1) {
 		std::vector<std::string> args(argc - 1);
 		for (qpl::isize i = 0; i < argc - 1; ++i) {
 			args[i] = argv[i + 1];
 		}
-		run(args);
+		run(args, autogit);
 	}
 	else {
-		run_loop();
+		run_loop(autogit);
 	}
 }
 catch (std::exception& any) {

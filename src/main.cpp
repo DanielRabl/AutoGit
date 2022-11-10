@@ -1,7 +1,6 @@
 #include <qpl/qpl.hpp>
 #include "autogit.hpp"
 
-
 bool input_state(state& state, const std::string& input, const autogit& autogit) {
 	auto split = qpl::split_string_whitespace(input);
 	if (split.empty()) {
@@ -12,17 +11,6 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 	state.reset();
 
 	for (auto& arg : split) {
-
-		std::vector<qpl::filesys::path> found_locations;
-		for (auto& dir : autogit.directories) {
-			if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
-				arg = arg.substr(1u, arg.length() - 2u);
-			}
-			if (qpl::string_equals_ignore_case(dir.directory_name, arg)) {
-				found_locations.push_back(dir.path);
-				qpl::println(dir.path, " is git: ", dir.is_git(), " ", dir.is_solution());
-			}
-		}
 
 		if (qpl::string_equals_ignore_case(arg, "check")) {
 			state.check_mode = true;
@@ -48,33 +36,96 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 		else if (qpl::string_equals_ignore_case(arg, "update")) {
 			state.update = true;
 		}
-		else if (found_locations.size()) {
-			qpl::filesys::path target = found_locations.front();
-			if (found_locations.size() > 1) {
-				while (true) {
-					qpl::println("there are multiple directories that match \"", arg, "\".");
-					qpl::println("select the right location: \n");
-					for (qpl::size i = 0u; i < found_locations.size(); ++i) {
-						qpl::println(qpl::color::aqua, qpl::to_string('<', i, '>'), " ", found_locations[i]);
-					}
-					qpl::print("> ");
-					auto number = qpl::get_input();
-					if (qpl::is_string_number(number)) {
-						auto index = qpl::size_cast(number);
-						if (index < found_locations.size()) {
-							target = found_locations[index];
-							break;
-						}
-					}
-					qpl::println("invalid input.\n");
+		else {
+			if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
+				arg = arg.substr(1u, arg.length() - 2u);
+			}
+			std::vector<std::string> list;
+			for (auto& i : autogit.directories) {
+				if (i.directory_name.length() >= arg.length()) {
+					list.push_back(i.directory_name.substr(0u, arg.length()));
+				}
+				else {
+					list.push_back("");
 				}
 			}
-			qpl::println("selected ", qpl::color::aqua, target);
-			state.target_input_directories.push_back(target);
-		}
-		else {
-			qpl::println("\"", arg, "\" invalid argument.\n");
-			abort = true;
+			auto best_match_indices = qpl::best_string_matches_indices(list, arg);
+
+			bool started_match = false;
+			for (auto& i : list) {
+				if (qpl::string_starts_with_ignore_case(i, arg)) {
+					started_match = true;
+					break;
+				}
+			}
+
+			qpl::filesys::path target;
+
+			if (!started_match) {
+				qpl::println("couldn't find a directory named \"", arg, "\".");
+
+				if (best_match_indices.size() > 1) {
+					while (true) {
+						qpl::println("select the right location: [enter to go back] \n");
+						for (qpl::size i = 0u; i < best_match_indices.size(); ++i) {
+							qpl::println(qpl::color::aqua, qpl::to_string('<', i, '>'), " ", autogit.directories[best_match_indices[i]].path);
+						}
+						qpl::print("> ");
+						auto number = qpl::get_input();
+						if (qpl::is_string_number(number)) {
+							auto index = qpl::size_cast(number);
+							if (index < best_match_indices.size()) {
+								target = autogit.directories[best_match_indices[index]].path;
+								break;
+							}
+						}
+						abort = true;
+						break;
+					}
+				}
+				else {
+					while (true) {
+						qpl::print("did you mean this location ", qpl::color::aqua, autogit.directories[best_match_indices.front()].path, "? (y / n) > ");
+						auto input = qpl::get_input();
+						if (qpl::string_equals_ignore_case(input, "y")) {
+							target = autogit.directories[best_match_indices.front()].path;
+							break;
+						}
+						else if (qpl::string_equals_ignore_case(input, "n")) {
+							abort = true;
+							break;
+						}
+						qpl::println("invalid input \"", input, "\".\n");
+					}
+				}
+			}
+			else {
+				target = autogit.directories[best_match_indices.front()].path;
+				if (best_match_indices.size() > 1) {
+					while (true) {
+						qpl::println("there are multiple directories that match \"", arg, "\".");
+						qpl::println("did you mean any of these locations? [enter to go back] ");
+						for (qpl::size i = 0u; i < best_match_indices.size(); ++i) {
+							qpl::println(qpl::color::aqua, qpl::to_string('<', i, '>'), " ", autogit.directories[best_match_indices[i]].path);
+						}
+						qpl::print("> ");
+						auto number = qpl::get_input();
+						if (qpl::is_string_number(number)) {
+							auto index = qpl::size_cast(number);
+							if (index < best_match_indices.size()) {
+								target = autogit.directories[best_match_indices[index]].path;
+								break;
+							}
+						}
+						abort = true;
+						break;
+					}
+				}
+			}
+			if (!target.empty()) {
+				qpl::println("selected ", qpl::color::aqua, target);
+				state.target_input_directories.push_back(target);
+			}
 		}
 	}
 	if (abort) {
@@ -86,32 +137,34 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 	}
 	return true;
 }
+
 void print_commands() {
 	auto ps = qpl::color::light_aqua;
 	auto pl = qpl::color::light_green;
 	auto u = qpl::color::aqua;
 
-	auto n = 20;
+	auto seperation_width = 20;
+	qpl::println();
 	qpl::println(qpl::color::aqua, "git pull . . . ", ">> ", pl, "fetches", " and ", pl, "merges", " from git.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "git push . . . ", ">> ", ps, "commits" , " and ", ps, "pushes",  " to git.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "local pull . . ", ">> ", "git directory -> solution directory.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "local push . . ", ">> ", "solution directory -> git directory.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "pull . . . . . ", ">> ", "BOTH git ", pl, "pull", " && local ", pl, "pull", ".");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "push . . . . . ", ">> ", "BOTH local ", ps, "push", " && git ", ps, "push", ".");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "status . . . . ", ">> ", "shows ", u, "status", " of any command.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "update . . . . ", ">> ", "runs ", u, "status", " and executes either ", ps, "push", " or ", pl, "pull", ".");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
-	qpl::println(qpl::color::aqua, "check  . . . . ", ">> ", "runs any command, but in safe mode.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
-	qpl::println(qpl::color::aqua, "quick  . . . . ", ">> ", "runs any command, but less deep.");
-	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
+	//qpl::println(qpl::color::aqua, "check  . . . . ", ">> ", "runs any command, but in safe mode.");
+	//qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
+	//qpl::println(qpl::color::aqua, "quick  . . . . ", ">> ", "runs any command, but less deep.");
+	//qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "[directory]. . ", ">> ", "runs any command ONLY on that directory.");
 	qpl::println();
 	qpl::println("combine them, e.g. \"local status\", \"git pull\", \"local push status\".\n");

@@ -67,7 +67,7 @@ constexpr auto command_string(command command) {
 struct state {
 	bool check_mode = false;
 	bool print = true;
-	bool only_collisions = false;
+	bool only_conflicts = false;
 	bool find_collisions = true;
 	bool status = false;
 	bool quick_mode = false;
@@ -79,7 +79,7 @@ struct state {
 	void reset() {
 		this->check_mode = false;
 		this->print = true;
-		this->only_collisions = false;
+		this->only_conflicts = false;
 		this->find_collisions = true;
 		this->status = false;
 		this->quick_mode = false;

@@ -43,29 +43,61 @@ struct autogit {
 		}
 	}
 	bool execute_check_collisions(const state& state) {
-		if (state.action != action::both && !state.status && !state.update) {
-			auto collision_state = state;
+		auto collision_state = state;
 
-			collision_state.find_collisions = true;
-			collision_state.print = false;
-			collision_state.check_mode = true;
-			collision_state.only_collisions = true;
+		collision_state.find_collisions = true;
+		collision_state.print = false;
+		collision_state.check_mode = true;
+		collision_state.only_conflicts = true;
 
-			this->execute_no_collisions(collision_state);
-			return confirm_collisions(collision_state);
-		}
-		return true;
+		this->execute_no_collisions(collision_state);
+		return confirm_collisions(collision_state);
 	}
 
 	void execute(const state& state) {
 		qpl::clock timer;
 
-		auto confirm = this->execute_check_collisions(state);
-
-		timer.pause();
-		if (confirm) {
-			timer.resume();
+		bool needs_check = state.action != action::both && !state.status && !state.update;
+		if (needs_check) {
+			if (this->execute_check_collisions(state)) {
+				this->execute_no_collisions(state);
+			}
+		}
+		else {
 			this->execute_no_collisions(state);
+			if (state.action == action::both && state.status) {
+				qpl::size found_moves = 0u;
+				for (auto& dir : this->directories) {
+					if (dir.can_do_safe_move()) {
+						++found_moves;
+					}
+				}
+				if (found_moves) {
+					bool update = false;
+					while (true) {
+						qpl::print("would you like to update ", found_moves, " directory? (y / n) > ");
+						auto input = qpl::get_input();
+						if (qpl::string_equals_ignore_case(input, "y")) {
+							update = true;
+							break;
+						}
+						else if (qpl::string_equals_ignore_case(input, "n")) {
+							update = false;
+							break;
+						}
+						qpl::println("\"", input, "\" invalid input");
+					}
+					if (update) {
+						auto update_state = state;
+						update_state.update = true;
+						for (auto& dir : this->directories) {
+							if (dir.can_do_safe_move()) {
+								dir.perform_safe_move(update_state);
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if (timer.elapsed_f() > 10.0) {

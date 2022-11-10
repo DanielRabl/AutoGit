@@ -16,6 +16,8 @@ struct autogit_directory {
 	status pull_status;
 	history_status history;
 	bool pulled = false;
+	bool can_safely_push = false;
+	bool can_safely_pull = false;
 
 	bool is_git() const {
 		return this->solution_path.empty() && !this->git_path.empty();
@@ -134,12 +136,14 @@ struct autogit_directory {
 	}
 
 	void execute(const state& state, command command) {
-		if (command == command::move && this->pulled) {
+
+		auto actual_update = state.update && !state.status && !state.check_mode && !state.only_conflicts;
+		if (actual_update && command == command::move && this->pulled) {
 			auto collision_state = state;
 			collision_state.find_collisions = true;
 			collision_state.print = false;
 			collision_state.check_mode = true;
-			collision_state.only_collisions = true;
+			collision_state.only_conflicts = true;
 
 			this->execute(collision_state, command::move);
 			if (!confirm_collisions(collision_state)) {
@@ -152,11 +156,11 @@ struct autogit_directory {
 
 		auto word = state.action == action::pull ? "PULL" : "PUSH";
 		auto status_word = state.status ? "status" : "update status";
-		if (!state.only_collisions && git_print) {
+		if (!state.only_conflicts && git_print) {
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
 			qpl::print(cw, "------", " git [", cw, word, "] ", status_word, " ");
 		}
-		if (!state.only_collisions && move_print) {
+		if (!state.only_conflicts && move_print) {
 			auto cw = state.action == action::pull ? qpl::color::light_green : qpl::color::aqua;
 			qpl::print(cw, "-----", " move [", cw, word, "] ", status_word, " ");
 		}
@@ -178,7 +182,7 @@ struct autogit_directory {
 			break;
 		}
 
-		if (!state.only_collisions && git_print) {
+		if (!state.only_conflicts && git_print) {
 			auto word = state.action == action::pull ? "fetch" : "commit";
 			if (!this->history.git_changes) {
 				qpl::println(qpl::color::gray, qpl::to_string("nothing new to ", word, "."));
@@ -187,7 +191,7 @@ struct autogit_directory {
 				qpl::println(qpl::color::light_yellow, qpl::to_string("needs git ", word, "."));
 			}
 		}
-		if (!state.only_collisions && move_print) {
+		if (!state.only_conflicts && move_print) {
 			if (!this->history.move_changes) {
 				qpl::println(qpl::color::gray, "directories are synchronized.");
 			}
@@ -262,7 +266,7 @@ struct autogit_directory {
 		this->determine_status(state);
 
 		auto actual_update = state.update && !state.status;
-		if (state.only_collisions && this->history.any_collisions()) {
+		if (state.only_conflicts && this->history.any_collisions()) {
 			qpl::println("COLLISIONS ", qpl::color::aqua, this->path);
 			print_collisions(state, this->history);
 		}
@@ -270,7 +274,47 @@ struct autogit_directory {
 			print_collisions(state, this->history);
 		}
 	}
+	void perform_safe_move(state state) {
+		if (!this->can_do_safe_move()) {
+			return;
+		}
+		state.status = false;
+		state.print = true;
 
+		auto can_push_both_changes = this->status_can_push_both_changes();
+		auto can_pull_both_changes = this->status_can_pull_both_changes();
+		if (can_push_both_changes || can_pull_both_changes) {
+			auto word = can_push_both_changes ? "push" : "pull";
+			while (true) {
+				qpl::print("do you want to overwrite the git directory changes after ", can_push_both_changes ? "local " : "git ", qpl::color::aqua, word, " (y / n) > ");
+				auto input = qpl::get_input();
+				if (qpl::string_equals_ignore_case(input, "y")) {
+					break;
+				}
+				else if (qpl::string_equals_ignore_case(input, "n")) {
+					return;
+				}
+			}
+		}
+
+		if (this->status_can_push() || can_push_both_changes) {
+			state.action = action::push;
+			auto commands = this->get_commands(state);
+
+			qpl::println();
+			this->execute(state, this->get_commands(state));
+		}
+		else if (this->status_can_pull() || can_pull_both_changes) {
+			state.action = action::pull;
+			auto commands = this->get_commands(state);
+
+			qpl::println();
+			this->execute(state, this->get_commands(state));
+		}
+	}
+	bool can_do_safe_move() const {
+		return this->can_safely_pull || this->can_safely_push;
+	}
 	void execute(state state) {
 		if (this->empty()) {
 			return;
@@ -278,13 +322,15 @@ struct autogit_directory {
 		this->pull_status.reset();
 		this->push_status.reset();
 		this->pulled = false;
+		this->can_safely_push = false;
+		this->can_safely_pull = false;
 
 		if (state.action == action::both && (state.status || state.update)) {
 			if (this->get_pull_commands(state).empty() && this->get_push_commands(state).empty()) {
 				return;
 			}
 
-			if (!state.only_collisions) {
+			if (!state.only_conflicts) {
 				auto word = state.status ? "STATUS " : "UPDATE ";
 				qpl::println('\n', word, qpl::color::aqua, this->path);
 			}
@@ -317,11 +363,14 @@ struct autogit_directory {
 				}
 			}
 
-			if (!state.only_collisions) {
+			if (!state.only_conflicts) {
 				auto can_push = this->status_can_push();
 				auto can_pull = this->status_can_pull();
 				auto can_push_both_changes = this->status_can_push_both_changes();
 				auto can_pull_both_changes = this->status_can_pull_both_changes();
+
+				this->can_safely_pull = can_pull || can_pull_both_changes;
+				this->can_safely_push = can_push || can_push_both_changes;
 
 				if (can_push || can_pull) {
 					auto word = can_push ? "push" : "pull";
@@ -345,39 +394,7 @@ struct autogit_directory {
 
 			if (state.update) {
 				state.check_mode = check_mode;
-				state.status = false;
-				state.print = true;
-
-				auto can_push_both_changes = this->status_can_push_both_changes();
-				auto can_pull_both_changes = this->status_can_pull_both_changes();
-				if (can_push_both_changes || can_pull_both_changes) {
-					auto word = can_push_both_changes ? "push" : "pull";
-					while (true) {
-						qpl::print("do you want to overwrite the git directory changes after ", can_push_both_changes ? "local " : "git ", qpl::color::aqua, word, " (y / n) > ");
-						auto input = qpl::get_input();
-						if (qpl::string_equals_ignore_case(input, "y")) {
-							break;
-						}
-						else if (qpl::string_equals_ignore_case(input, "n")) {
-							return;
-						}
-					}
-				}
-
-				if (this->status_can_push() || can_push_both_changes) {
-					state.action = action::push;
-					auto commands = this->get_commands(state);
-
-					qpl::println();
-					this->execute(state, this->get_commands(state));
-				}
-				else if (this->status_can_pull() || can_pull_both_changes) {
-					state.action = action::pull;
-					auto commands = this->get_commands(state);
-
-					qpl::println();
-					this->execute(state, this->get_commands(state));
-				}
+				this->perform_safe_move(state);
 			}
 		}
 		else {
@@ -385,7 +402,7 @@ struct autogit_directory {
 			if (commands.empty()) {
 				return;
 			}
-			if (!state.only_collisions) {
+			if (!state.only_conflicts) {
 				auto word = state.status ? "STATUS " : "UPDATE ";
 				qpl::println('\n', word, qpl::color::aqua, this->path);
 			}

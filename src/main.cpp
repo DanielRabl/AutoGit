@@ -87,10 +87,29 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 	}
 	return true;
 }
+void print_commands() {
+	auto ps = qpl::color::light_aqua;
+	auto pl = qpl::color::light_green;
+	auto u = qpl::color::aqua;
+	qpl::println(qpl::color::aqua, "git pull", " . . . ", pl, "fetches", " and ", pl, "merges", " from git.");
+	qpl::println(qpl::color::aqua, "git push", " . . . ", ps, "commits" , " and ", ps, "pushes",  " to git.");
+	qpl::println(qpl::color::aqua, "local pull", " . . git directory -> solution directory.");
+	qpl::println(qpl::color::aqua, "local push", " . . solution directory -> git directory.");
+	qpl::println(qpl::color::aqua, "pull", " . . . . . BOTH git ", pl, "pull", " && local ", pl, "pull", ".");
+	qpl::println(qpl::color::aqua, "push", " . . . . . BOTH local ", ps, "push", " && git ", ps, "push", ".");
+	qpl::println(qpl::color::aqua, "status", " . . . . shows ", u, "status", " of any command.");
+	qpl::println(qpl::color::aqua, "update", " . . . . runs ", u, "status", " and executes either ", ps, "push", " or ", pl, "pull", ".");
+	qpl::println(qpl::color::aqua, "check", "  . . . . runs any command, but in safe mode.");
+	qpl::println(qpl::color::aqua, "quick", "  . . . . runs any command, but less deep.");
+	qpl::println(qpl::color::aqua, "[directory]\"", ". . runs any command ONLY on that directory.");
+	qpl::println();
+	qpl::println("combine them, e.g. \"local status\", \"git pull\", \"local push status\".");
+}
 
 void input_state(state& state, const autogit& autogit) {
 	while (true) {
-		qpl::print("PULL changes or PUSH changes > ");
+
+		qpl::print("command > ");
 		auto input = qpl::get_input();
 
 		if (input_state(state, input, autogit)) {
@@ -194,25 +213,6 @@ std::vector<std::string> find_location() {
 	return result;
 }
 
-void run(const std::vector<std::string>& input) {
-	auto location = find_location();
-	if (location.empty()) {
-		return;
-	}
-
-	autogit autogit;
-	for (auto& input : input) {
-		info::total_reset();
-
-		autogit.find_directories(location);
-
-		state state;
-		input_state(state, input, autogit);
-
-		autogit.execute(state);
-	}
-}
-
 void run_loop() {
 	auto location = find_location();
 	if (location.empty()) {
@@ -233,7 +233,29 @@ void run_loop() {
 	}
 }
 
+void run(const std::vector<std::string>& input) {
+	auto location = find_location();
+	if (location.empty()) {
+		return;
+	}
+
+	autogit autogit;
+	for (auto& input : input) {
+		info::total_reset();
+
+		autogit.find_directories(location);
+
+		state state;
+		input_state(state, input, autogit);
+
+		autogit.execute(state);
+	}
+	run_loop();
+}
+
 int main(int argc, char** argv) try {
+	print_commands();
+
 	if (argc > 1) {
 		std::vector<std::string> args(argc - 1);
 		for (qpl::isize i = 0; i < argc - 1; ++i) {

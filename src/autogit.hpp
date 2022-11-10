@@ -75,7 +75,22 @@ struct autogit {
 				if (found_moves) {
 					bool update = false;
 					while (true) {
-						qpl::print("would you like to update ", found_moves, " directory? (y / n) > ");
+
+						qpl::println();
+
+						qpl::size length = 0u;
+						for (auto& dir : this->directories) {
+							if (dir.can_do_safe_move()) {
+								length = qpl::max(length, dir.path.string().length());
+							}
+						}
+						for (auto& dir : this->directories) {
+							if (dir.can_do_safe_move()) {
+								auto word = dir.can_safely_pull ? "pull" : "push";
+								qpl::println(qpl::appended_to_string_to_fit(dir.path, ". ", length), " -> can safely ", qpl::color::aqua, word, '.');
+							}
+						}
+						qpl::print("would you like to update ", qpl::color::aqua, found_moves, " directories? (y / n) > ");
 						auto input = qpl::get_input();
 						if (qpl::string_equals_ignore_case(input, "y")) {
 							update = true;

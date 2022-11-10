@@ -145,7 +145,7 @@ struct autogit_directory {
 
 	void execute(const state& state, command command) {
 
-		auto actual_update = state.update && !state.status && !state.check_mode && !state.only_conflicts;
+		auto actual_update = !state.check_mode;
 		if (actual_update && command == command::move && this->pulled) {
 			auto collision_state = state;
 			collision_state.find_collisions = true;
@@ -273,7 +273,7 @@ struct autogit_directory {
 		}
 		this->determine_status(state);
 
-		auto actual_update = state.update && !state.status;
+		auto actual_update = !state.check_mode;
 		if (state.only_conflicts && this->history.any_collisions()) {
 			qpl::println("COLLISIONS ", qpl::color::aqua, this->path);
 			print_collisions(state, this->history);
@@ -288,6 +288,7 @@ struct autogit_directory {
 		}
 		state.status = false;
 		state.print = true;
+		state.update = true;
 
 		auto can_push_both_changes = this->status_can_push_both_changes();
 		auto can_pull_both_changes = this->status_can_pull_both_changes();

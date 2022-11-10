@@ -103,7 +103,7 @@ struct autogit {
 							if (dir.can_do_safe_move()) {
 
 								qpl::print(">>> ");
-								auto word = dir.can_safely_pull ? "pull" : "push";
+								auto word = dir.can_safely_push ? "push" : "pull";
 								qpl::println(qpl::color::aqua, qpl::appended_to_string_to_fit(dir.path, ". ", length), " update: ", qpl::color::aqua, word, '.');
 							}
 						}

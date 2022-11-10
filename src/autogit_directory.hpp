@@ -216,7 +216,7 @@ struct autogit_directory {
 		status status;
 		status.git_changes = this->history.git_changes;
 		status.local_changes = this->history.move_changes;
-		status.local_collision = this->history.any_serious_collisions();
+		status.local_collision = this->history.any_collisions();
 		status.time_overwrites = !this->history.time_overwrites.empty();
 		return status;
 	}
@@ -379,11 +379,6 @@ struct autogit_directory {
 
 				this->can_safely_pull = can_pull || can_pull_both_changes;
 				this->can_safely_push = can_push || can_push_both_changes;
-
-				if (this->can_safely_pull && this->can_safely_push) {
-					this->can_safely_pull = can_pull;
-					this->can_safely_push = can_push;
-				}
 
 				if (can_push || can_pull) {
 					auto word = can_push ? "push" : "pull";

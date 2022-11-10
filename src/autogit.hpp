@@ -30,7 +30,6 @@ struct autogit {
 		}
 	}
 	void print() {
-
 		qpl::size length = 0u;
 		for (auto& i : this->directories) {
 			if (!i.empty()) {

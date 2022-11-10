@@ -1,5 +1,4 @@
 #include <qpl/qpl.hpp>
-
 #include "autogit.hpp"
 
 
@@ -91,19 +90,31 @@ void print_commands() {
 	auto ps = qpl::color::light_aqua;
 	auto pl = qpl::color::light_green;
 	auto u = qpl::color::aqua;
-	qpl::println(qpl::color::aqua, "git pull", " . . . ", pl, "fetches", " and ", pl, "merges", " from git.");
-	qpl::println(qpl::color::aqua, "git push", " . . . ", ps, "commits" , " and ", ps, "pushes",  " to git.");
-	qpl::println(qpl::color::aqua, "local pull", " . . git directory -> solution directory.");
-	qpl::println(qpl::color::aqua, "local push", " . . solution directory -> git directory.");
-	qpl::println(qpl::color::aqua, "pull", " . . . . . BOTH git ", pl, "pull", " && local ", pl, "pull", ".");
-	qpl::println(qpl::color::aqua, "push", " . . . . . BOTH local ", ps, "push", " && git ", ps, "push", ".");
-	qpl::println(qpl::color::aqua, "status", " . . . . shows ", u, "status", " of any command.");
-	qpl::println(qpl::color::aqua, "update", " . . . . runs ", u, "status", " and executes either ", ps, "push", " or ", pl, "pull", ".");
-	qpl::println(qpl::color::aqua, "check", "  . . . . runs any command, but in safe mode.");
-	qpl::println(qpl::color::aqua, "quick", "  . . . . runs any command, but less deep.");
-	qpl::println(qpl::color::aqua, "[directory]\"", ". . runs any command ONLY on that directory.");
+
+	auto n = 20;
+	qpl::println(qpl::color::aqua, "git pull . . . ", ">> ", pl, "fetches", " and ", pl, "merges", " from git.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "git push . . . ", ">> ", ps, "commits" , " and ", ps, "pushes",  " to git.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "local pull . . ", ">> ", "git directory -> solution directory.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "local push . . ", ">> ", "solution directory -> git directory.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "pull . . . . . ", ">> ", "BOTH git ", pl, "pull", " && local ", pl, "pull", ".");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "push . . . . . ", ">> ", "BOTH local ", ps, "push", " && git ", ps, "push", ".");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "status . . . . ", ">> ", "shows ", u, "status", " of any command.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "update . . . . ", ">> ", "runs ", u, "status", " and executes either ", ps, "push", " or ", pl, "pull", ".");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "check  . . . . ", ">> ", "runs any command, but in safe mode.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "quick  . . . . ", ">> ", "runs any command, but less deep.");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", n));
+	qpl::println(qpl::color::aqua, "[directory]. . ", ">> ", "runs any command ONLY on that directory.");
 	qpl::println();
-	qpl::println("combine them, e.g. \"local status\", \"git pull\", \"local push status\".");
+	qpl::println("combine them, e.g. \"local status\", \"git pull\", \"local push status\".\n");
 }
 
 void input_state(state& state, const autogit& autogit) {
@@ -207,7 +218,7 @@ std::vector<std::string> find_location() {
 		qpl::system_pause();
 	}
 	else {
-		qpl::println(qpl::color::gray, qpl::to_string("location = \"", location_names[best_index], "\"\n"));
+		qpl::println(qpl::color::gray, qpl::to_string("location = \"", location_names[best_index], "\""));
 	}
 
 	return result;

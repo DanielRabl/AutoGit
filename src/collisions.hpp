@@ -54,8 +54,7 @@ bool confirm_collisions(const state& state) {
 		while (true) {
 			qpl::println();
 			auto word = info::total_change_sum > 1 ? "files" : "file";
-			qpl::println("Are you SURE you want to overwrite ", qpl::color::light_red, info::total_change_sum, ' ', word, " ? (y / n)");
-			qpl::print("> ");
+			qpl::print("are you SURE you want to overwrite ", qpl::color::light_red, info::total_change_sum, ' ', word, " ? (y / n) > ");
 
 			auto input = qpl::get_input();
 			if (qpl::string_equals_ignore_case(input, "y")) {

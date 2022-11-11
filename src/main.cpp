@@ -11,7 +11,6 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 	state.reset();
 
 	for (auto& arg : split) {
-
 		if (qpl::string_equals_ignore_case(arg, "check")) {
 			state.check_mode = true;
 		}

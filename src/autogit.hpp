@@ -92,7 +92,6 @@ struct autogit {
 					while (true) {
 
 						qpl::println('\n');
-
 						qpl::size length = 0u;
 						for (auto& dir : this->directories) {
 							if (dir.can_do_safe_move()) {
@@ -129,6 +128,10 @@ struct autogit {
 							}
 						}
 					}
+				}
+				else {
+					qpl::println('\n');
+					qpl::print("your directories are all up-to date.");
 				}
 			}
 		}

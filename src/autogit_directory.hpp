@@ -154,8 +154,12 @@ struct autogit_directory {
 			collision_state.only_conflicts = true;
 
 			this->execute(collision_state, command::move);
+
 			if (!confirm_collisions(collision_state)) {
 				return;
+			}
+			if (info::total_change_sum && !collision_state.status) {
+				qpl::println("local pull test returned sucessfully.");
 			}
 		}
 

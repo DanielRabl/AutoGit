@@ -120,12 +120,11 @@ struct autogit {
 						qpl::println("\"", input, "\" invalid input");
 					}
 					if (update) {
-						qpl::println("<<<state.only_conflicts ", state.only_conflicts, ">>>");
 						auto update_state = state;
 						update_state.update = true;
-						update_state.only_conflicts = false;
 						for (auto& dir : this->directories) {
 							if (dir.can_do_safe_move()) {
+								qpl::println('\n', "UPDATE ", qpl::color::aqua, dir.path);
 								dir.perform_safe_move(update_state);
 							}
 						}

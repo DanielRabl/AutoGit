@@ -189,7 +189,6 @@ std::vector<std::string> find_location() {
 	}
 
 	std::vector<std::vector<std::string>> locations;
-	std::vector<std::vector<std::string>> locations_command;
 	std::vector<std::string> location_names;
 	for (qpl::size i = 0u; i < lines.size(); ++i) {
 		if (lines[i].empty()) {
@@ -197,18 +196,18 @@ std::vector<std::string> find_location() {
 		}
 		if (lines[i].back() == '{') {
 			locations.push_back({});
-			locations_command.push_back({});
 			location_names.push_back(qpl::split_string_words(lines[i]).front());
 		}
 		else if (lines[i].front() != '}') {
-			auto split = qpl::split_string_whitespace(lines[i]);
-			locations.back().push_back(split.back());
-			locations_command.back().push_back(lines[i]);
+			qpl::size index = 0u;
+			while (index < lines[i].size() && qpl::is_character_whitespace(lines[i][index])) {
+				++index;
+			}
+			locations.back().push_back(lines[i].substr(index));
 		}
 	}
 
 	qpl::size best_index = 0u;
-	std::vector<std::string> location;
 	std::vector<std::string> result;
 	for (qpl::size i = 0u; i < locations.size(); ++i) {
 		bool found = true;
@@ -219,24 +218,12 @@ std::vector<std::string> find_location() {
 			}
 		}
 		if (found) {
-			location = locations[i];
-			result = locations_command[i];
-
-			for (auto& i : result) {
-				qpl::size index = 0u;
-				while (index < i.length() && qpl::is_character_whitespace(i[index])) {
-					++index;
-				}
-				if (index < i.length()) {
-					i = i.substr(index);
-				}
-			}
-
+			result = locations[i];
 			best_index = i;
 			break;
 		}
 	}
-	if (location.empty()) {
+	if (result.empty()) {
 		std::vector<std::pair<qpl::size, qpl::size>> counts(locations.size());
 
 		for (qpl::size i = 0u; i < locations.size(); ++i) {

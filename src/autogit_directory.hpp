@@ -323,19 +323,23 @@ struct autogit_directory {
 			qpl::println();
 			this->execute(state, this->get_commands(state));
 		}
+		this->status_reset();
 	}
 	bool can_do_safe_move() const {
 		return this->can_safely_pull || this->can_safely_push;
 	}
-	void execute(state state) {
-		if (this->empty()) {
-			return;
-		}
+	void status_reset() {
 		this->pull_status.reset();
 		this->push_status.reset();
 		this->pulled = false;
 		this->can_safely_push = false;
 		this->can_safely_pull = false;
+	}
+	void execute(state state) {
+		if (this->empty()) {
+			return;
+		}
+		this->status_reset();
 
 		if (state.action == action::both && (state.status || state.update)) {
 			if (this->get_pull_commands(state).empty() && this->get_push_commands(state).empty()) {

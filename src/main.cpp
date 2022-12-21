@@ -35,6 +35,9 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 		else if (qpl::string_equals_ignore_case(arg, "update")) {
 			state.update = true;
 		}
+		else if (qpl::string_equals_ignore_case(arg, "hard-pull")) {
+			state.hard_pull = true;
+		}
 		else {
 			if (arg.length() > 1 && arg.starts_with('"') && arg.back() == '"') {
 				arg = arg.substr(1u, arg.length() - 2u);
@@ -130,7 +133,7 @@ bool input_state(state& state, const std::string& input, const autogit& autogit)
 	if (abort) {
 		return false;
 	}
-	if (state.action == action::both && !(state.status || state.update)) {
+	if (state.action == action::both && !(state.status || state.update || state.hard_pull)) {
 		qpl::println("\"", split, "\" invalid arguments.\n");
 		return false;
 	}
@@ -160,10 +163,8 @@ void print_commands() {
 	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "update . . . . ", ">> ", "runs ", u, "status", " and executes either ", ps, "push", " or ", pl, "pull", ".");
 	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
-	//qpl::println(qpl::color::aqua, "check  . . . . ", ">> ", "runs any command, but in safe mode.");
-	//qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
-	//qpl::println(qpl::color::aqua, "quick  . . . . ", ">> ", "runs any command, but less deep.");
-	//qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
+	qpl::println(qpl::color::aqua, "hard-pull  . . ", ">> ", "hard resets git and runs ", pl, "pull", ".");
+	qpl::println(qpl::color::gray, qpl::to_string_repeat("- ", seperation_width));
 	qpl::println(qpl::color::aqua, "[directory]. . ", ">> ", "runs any command ONLY on that directory.");
 	qpl::println();
 	qpl::println("combine them, e.g. \"local status\", \"git pull\", \"local push status\".\n");

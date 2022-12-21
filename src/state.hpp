@@ -72,6 +72,7 @@ struct state {
 	bool status = false;
 	bool quick_mode = false;
 	bool update = false;
+	bool hard_pull = false;
 	::action action = action::both;
 	::location location = location::both;
 	std::vector<std::string> target_input_directories;
@@ -84,6 +85,7 @@ struct state {
 		this->status = false;
 		this->quick_mode = false;
 		this->update = false;
+		this->hard_pull = false;
 		this->action = action::both;
 		this->location = location::both;
 		this->target_input_directories.clear();;

@@ -72,7 +72,7 @@ struct autogit {
 	void execute(const state& state) {
 		qpl::clock timer;
 
-		bool needs_check = state.action != action::both && !state.status && !state.update;
+		bool needs_check = state.action != action::both && !state.status && !state.update && !state.hard_pull;
 		if (needs_check) {
 			if (this->execute_check_collisions(state)) {
 				this->execute_no_collisions(state);

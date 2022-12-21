@@ -414,7 +414,27 @@ struct autogit_directory {
 			}
 		}
 		else {
+			if (state.hard_pull) {
+				while (!(state.status || state.check_mode)) {
+					qpl::print("are you sure you want to HARD-RESET ", qpl::color::aqua, this->path, "? (y / n) > ");
+					auto input = qpl::get_input();
+					if (qpl::string_equals_ignore_case(input, "y")) {
+						break;
+					}
+					else if (qpl::string_equals_ignore_case(input, "n")) {
+						return;
+					}
+					qpl::println("invalid input \"", input, "\".\n");
+				}
+
+				this->perform_git(state);
+
+				state.hard_pull = false;
+				state.action = action::pull;
+				state.location = location::local;
+			}
 			auto commands = this->get_commands(state);
+
 			if (commands.empty()) {
 				return;
 			}

@@ -60,6 +60,19 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 		exec_batch = home.appended("git_push.bat");
 		exec_data = qpl::to_string("@echo off && ", set_directory, " && git commit -m \"update\" && git push");
 	}
+	else if (state.hard_pull) {
+		auto list = git_path.list_current_directory();
+		for (auto& path : list) {
+			if (path.get_full_name() != ".git") {
+				path.remove();
+			}
+		}
+
+		exec_batch = home.appended("git_reset.bat");
+		exec_data = qpl::to_string("@echo off && ", set_directory, " && @echo on && git reset --hard HEAD && git clean -f -d");
+		execute_batch(exec_batch, exec_data);
+		return;
+	}
 
 	execute_batch(status_batch, status_data);
 

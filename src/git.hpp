@@ -82,10 +82,10 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 		output_file.remove();
 		return;
 	}
-
+	
 	history.git_changes = true;
 	if (state.action == action::pull) {
-		if (1 < lines.size()) {
+		if (lines.size() > 1) {
 			std::string search = "Your branch is up to date";
 			auto start = lines[1].substr(0u, search.length());
 			history.git_changes = !qpl::string_equals_ignore_case(start, search);
@@ -94,7 +94,13 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 	else if (state.action == action::push) {
 		std::string search = "nothing to commit, working tree clean";
 		history.git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
+
+		if (lines.size() > 1 && lines[1].starts_with("Your branch is ahead of")) {
+			qpl::print(" <nothing to commit, but requires ", qpl::color::light_aqua, "PUSH", ">");
+			history.git_changes = true;
+		}
 	}
+
 
 	if (history.git_changes) {
 		if (!status_display_data.empty()) {

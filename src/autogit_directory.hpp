@@ -297,16 +297,7 @@ struct autogit_directory {
 		auto can_pull_both_changes = this->status_can_pull_both_changes();
 		if (can_push_both_changes || can_pull_both_changes) {
 			auto word = can_push_both_changes ? "push" : "pull";
-			while (true) {
-				qpl::print("do you want to overwrite the git directory changes after ", can_push_both_changes ? "local " : "git ", qpl::color::aqua, word, " (y / n) > ");
-				auto input = qpl::get_input();
-				if (qpl::string_equals_ignore_case(input, "y")) {
-					break;
-				}
-				else if (qpl::string_equals_ignore_case(input, "n")) {
-					return;
-				}
-			}
+			qpl::print("overwriting the git directory changes after ", can_push_both_changes ? "local " : "git ", qpl::color::aqua, word);
 		}
 
 		if (this->status_can_push() || can_push_both_changes) {

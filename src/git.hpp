@@ -97,10 +97,15 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 		std::string search = "nothing to commit, working tree clean";
 		history.git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
 
-		if (lines.size() > 1 && lines[1].starts_with("Your branch is ahead of")) {
+		if (!history.git_changes && lines.size() > 1) {
 			std::string search = "Your branch is ahead of";
 			auto start = lines[1].substr(0u, search.length());
 			history.git_changes = qpl::string_equals_ignore_case(start, search);
+			
+			if (!state.status && history.git_changes) {
+				exec_batch = home.appended("git_push.bat");
+				exec_data = qpl::to_string("@echo off && ", set_directory, " && git push");
+			}
 		}
 	}
 

@@ -399,9 +399,9 @@ struct autogit_directory {
 					auto word = can_push_both_changes ? "push" : "pull";
 					if (!this->history.any_output) qpl::println();
 
-					qpl::println(".-------------------------------------------------------.");
+					qpl::println(".---------------------------------------------------------.");
 					qpl::println("| can ", qpl::color::aqua, word, ", but would overwrite changes in the git folder | ");
-					qpl::println(".-------------------------------------------------------.");
+					qpl::println(".---------------------------------------------------------.");
 				}
 				else if (this->status_has_conflicts()) {
 					qpl::println(qpl::color::light_red, "CONFLICT summary: ", this->status_conflict_string());

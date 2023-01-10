@@ -86,9 +86,11 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 	history.git_changes = true;
 	if (state.action == action::pull) {
 		if (lines.size() > 1) {
-			std::string search = "Your branch is up to date";
-			auto start = lines[1].substr(0u, search.length());
-			history.git_changes = !qpl::string_equals_ignore_case(start, search);
+			std::string search1 = "Your branch is up to date";
+			std::string search2 = "Your branch is ahead of";
+			auto case1 = qpl::string_equals_ignore_case(lines[1].substr(0u, search1.length()), search1);
+			auto case2 = qpl::string_equals_ignore_case(lines[1].substr(0u, search2.length()), search2);
+			history.git_changes = !(case1 || case2);
 		}
 	}
 	else if (state.action == action::push) {
@@ -96,8 +98,9 @@ void git(const qpl::filesys::path& path, const state& state, history_status& his
 		history.git_changes = !qpl::string_equals_ignore_case(lines.back(), search);
 
 		if (lines.size() > 1 && lines[1].starts_with("Your branch is ahead of")) {
-			qpl::print(" <nothing to commit, but requires ", qpl::color::light_aqua, "PUSH", ">");
-			history.git_changes = true;
+			std::string search = "Your branch is ahead of";
+			auto start = lines[1].substr(0u, search.length());
+			history.git_changes = qpl::string_equals_ignore_case(start, search);
 		}
 	}
 
